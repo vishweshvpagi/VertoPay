@@ -1,50 +1,325 @@
-# Welcome to your Expo app 👋
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
-## Get started
+# 🎓 VertoPay - Campus Digital Payment System
 
-1. Install dependencies
+<div align="center">
 
-   ```bash
-   npm install
-   ```
+![VertoPay Logo](https://img.shields.io/badge/VertoPay-v1.0.0-6C63FF?style=for-the-badge)
+![React Native](https://img.shields.io/badge/React_Native-0.74-61DAFB?style=for-the-badge&logo=react)
+![Expo](https://img.shields.io/badge/Expo-51.0-000020?style=for-the-badge&logo=expo)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.1-3178C6?style=for-the-badge&logo=typescript)
 
-2. Start the app
+**A secure, blockchain-inspired QR-based payment system for college campuses**
 
-   ```bash
-   npx expo start
-   ```
+[Features](#-features) • [Demo](#-demo) • [Installation](#-installation) • [Architecture](#-architecture) • [Contributing](#-contributing)
 
-In the output, you'll find options to open the app in a
+</div>
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+---
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## 📋 Table of Contents
 
-## Get a fresh project
+- [Overview](#-overview)
+- [Features](#-features)
+- [Tech Stack](#-tech-stack)
+- [System Architecture](#-system-architecture)
+- [Installation](#-installation)
+- [Usage](#-usage)
+- [Project Structure](#-project-structure)
+- [Security Features](#-security-features)
+- [API Documentation](#-api-documentation)
+- [Screenshots](#-screenshots)
+- [Roadmap](#-roadmap)
+- [Contributing](#-contributing)
+- [License](#-license)
+- [Contact](#-contact)
 
-When you're ready, run:
+---
 
-```bash
-npm run reset-project
-```
+## 🎯 Overview
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+VertoPay is a **decentralized digital wallet system** designed specifically for college campuses. It enables students to make instant, secure payments to campus merchants (cafeterias, libraries, stores) using encrypted QR codes, eliminating the need for cash or cards.
 
-## Learn more
+### 🌟 Why VertoPay?
 
-To learn more about developing your project with Expo, look at the following resources:
+- 🚀 Fast: Pay in under 3 seconds
+- 🔐 Secure: Ed25519 + AES-256
+- 📱 Mobile-first
+- 💰 Low fees (2%)
+- 🎓 Campus ready
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+---
 
-## Join the community
+## ✨ Features
 
-Join our community of developers creating universal apps.
+### Students 👨‍🎓
+- Digital wallet
+- QR payment generation
+- Transaction history
+- Wallet recharge
+- Biometric authentication
+- Real-time balance
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+### Merchants 🏪
+- QR scanning
+- Dashboard & reports
+- Transaction tracking
+- Auto settlement
+- Low commission
+
+### Security 🔒
+- Ed25519 signatures
+- AES-256 encryption
+- QR expiry (60s)
+- Nonce protection
+- Secure key storage
+- Biometric verification
+
+---
+
+## 🛠️ Tech Stack
+
+### Frontend
+ 
+
+React Native 0.74
+Expo 51
+TypeScript 5.1
+Context API
+AsyncStorage
+
+ 
+
+### Security
+ 
+
+@noble/ed25519
+expo-secure-store
+expo-local-authentication
+AES-256
+
+ 
+
+---
+
+## 🏗️ System Architecture
+
+ 
+
+Student App
+↓ Generate QR (Encrypted)
+Merchant App
+↓ Verify Signature
+Wallet Update
+Transaction Log
+
+ 
+
+---
+
+## 📥 Installation
+
+### Prerequisites
+ 
+
+Node.js >= 18
+npm >= 9
+Expo Go
+
+ 
+
+### Setup
+ 
+
+git clone [https://github.com/yourusername/vertopay.git](https://github.com/yourusername/vertopay.git)
+cd vertopay/frontend
+npm install
+npx expo start
+
+ 
+
+---
+
+## 🚀 Usage
+
+### Student
+- Register
+- Recharge wallet
+- Generate QR
+- Pay merchant
+
+### Merchant
+- Register
+- Scan QR
+- Process payment
+
+---
+
+## 📁 Project Structure
+
+ 
+
+vertopay-frontend/
+├── app/
+│   ├── (auth)/
+│   ├── (student)/
+│   ├── (merchant)/
+├── components/
+├── context/
+├── hooks/
+├── scripts/
+├── constants/
+├── app.json
+├── package.json
+└── tsconfig.json
+
+ 
+
+---
+
+## 🔐 Security Features
+
+### Ed25519 Signature
+ 
+
+sign(studentId + amount + merchantId + timestamp)
+
+
+
+### AES Encryption
+
+
+encrypt(payload) → QR
+decrypt(QR) → payload
+
+
+### QR Expiry
+
+60 seconds
+
+
+
+---
+
+## 📊 API Documentation
+
+### Auth
+
+
+register()
+login()
+logout()
+
+
+### Wallet
+
+
+getBalance()
+rechargeWallet()
+addTransaction()
+processPayment()
+
+
+
+---
+
+## 📸 Screenshots
+
+Student App:
+Dashboard | Pay | History | Profile
+
+Merchant App:
+Dashboard | Scan | Transactions | Profile
+
+---
+
+## 🗺️ Roadmap
+
+### Phase 1 (MVP) ✅
+- QR payments
+- Wallets
+- Transactions
+
+### Phase 2 🚧
+- Backend
+- Blockchain
+- Fraud detection
+
+### Phase 3 🔮
+- NFC
+- Rewards
+- Analytics
+
+### Phase 4 🌍
+- Multi-campus
+- Admin panel
+- Integrations
+
+---
+
+## 🔧 Configuration
+
+### .env
+
+
+APP_ENV=development
+APP_VERSION=1.0.0
+ENCRYPTION_KEY=32_char_key_here
+QR_EXPIRY_TIME=60000
+MERCHANT_COMMISSION=0.02
+
+
+
+---
+
+## 🧪 Testing
+
+
+npm test
+npm run test:e2e
+npm run test:coverage
+
+
+
+---
+
+## 🤝 Contributing
+
+
+
+git checkout -b feature/name
+git commit -m "Add feature"
+git push origin feature/name
+
+
+
+
+
+## 📄 License
+
+MIT License © 2025 VertoPay
+
+
+
+## 👥 Team
+
+Developer: Your Name  
+University: CMR University  
+Project: Final Year  
+Year: 2025  
+
+
+## 📞 Contact
+
+Email: support@vertopay.dev  
+GitHub Issues enabled  
+
+
+
+<div align="center">
+
+**Built with ❤️ by students, for students**
+
+</div>
+ 
+Say the word.
