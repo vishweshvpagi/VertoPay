@@ -1,243 +1,656 @@
-import React, { useState, useEffect, useCallback, useRef, memo } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, ActivityIndicator } from 'react-native';
+ import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+} from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
-import { useWallet } from '../../hooks/useWallet';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
-import { encryptPaymentData } from '../../utils/encryption';
-
-const COLORS = {
-  primary: '#6C63FF',
-  danger: '#FF5252',
-  warning: '#FFC107',
-  background: '#F5F5F5',
-  text: '#212121',
-  textLight: '#757575',
-  border: '#E0E0E0',
-};
-
-const MERCHANT_CATEGORIES: Record<string, string> = {
-  CAFE_01: 'Main Campus Cafeteria',
-  CAFE_02: 'Block A Canteen',
-  LIBRARY_01: 'Central Library',
-  STATIONARY_01: 'Campus Store',
-};
-
-const QR_EXPIRY_TIME = 60;
-
-const MemoizedQRCode = memo(({ value }: { value: string }) => (
-  <QRCode value={value} size={250} />
-));
+import { COLORS, MERCHANT_CATEGORIES } from '../../constants/Config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function PayScreen() {
+  const { user } = useAuth();
+  const [balance, setBalance] = useState(0);
   const [amount, setAmount] = useState('');
   const [selectedMerchant, setSelectedMerchant] = useState('');
+  const [qrGenerated, setQrGenerated] = useState(false);
   const [qrData, setQrData] = useState('');
-  const [encryptedData, setEncryptedData] = useState('');
-  const [timeLeft, setTimeLeft] = useState(QR_EXPIRY_TIME);
-  const [isGenerating, setIsGenerating] = useState(false);
-  
-  const { balance } = useWallet();
-  const { user } = useAuth();
-  
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    };
+    loadBalance();
   }, []);
 
-  useEffect(() => {
-    if (qrData && timeLeft > 0) {
-      timerRef.current = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 1) {
-            handleCancel();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      return () => {
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
+  const loadBalance = async () => {
+    try {
+      if (user?.email) {
+        const walletData = await AsyncStorage.getItem(`WALLET_${user.email}`);
+        if (walletData) {
+          const wallet = JSON.parse(walletData);
+          setBalance(wallet.balance || 0);
         }
-      };
+      }
+    } catch (error) {
+      console.error('Load balance error:', error);
     }
-  }, [qrData]);
+  };
 
-  const handleCancel = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
-    setQrData('');
-    setEncryptedData('');
-    setTimeLeft(QR_EXPIRY_TIME);
-    setAmount('');
-    setSelectedMerchant('');
-  }, []);
+  const merchants = Object.entries(MERCHANT_CATEGORIES).map(([id, name]) => ({
+    id,
+    name,
+    icon: id === 'CANTEEN_01' ? 'restaurant' :
+          id === 'LIBRARY_01' ? 'book' :
+          id === 'STORE_01' ? 'storefront' : 'cafe',
+  }));
 
-  const generateQR = useCallback(async () => {
-    if (!amount || parseFloat(amount) <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount');
-      return;
-    }
+  const handleGenerateQR = () => {
+    const payAmount = parseFloat(amount);
 
     if (!selectedMerchant) {
-      Alert.alert('Error', 'Please select a merchant');
+      Alert.alert('Select Merchant', 'Please select a merchant to pay');
       return;
     }
 
-    const amountNum = parseFloat(amount);
-    if (amountNum > balance) {
-      Alert.alert('Insufficient Balance', `Your balance is ₹${balance}`);
+    if (!payAmount || payAmount <= 0) {
+      Alert.alert('Invalid Amount', 'Please enter a valid amount');
       return;
     }
 
-    setIsGenerating(true);
-
-    try {
-      const timestamp = Date.now();
-      const paymentData = {
-        studentId: user?.studentId || user?.uid,
-        amount: amountNum,
-        merchantId: selectedMerchant,
-        timestamp,
-        nonce: Math.random().toString(36).substring(7),
-      };
-
-      const encrypted = await encryptPaymentData(JSON.stringify(paymentData));
-      
-      setEncryptedData(encrypted);
-      setQrData(encrypted);
-      setTimeLeft(QR_EXPIRY_TIME);
-    } catch (error) {
-      console.error('QR Generation Error:', error);
-      Alert.alert('Error', 'Failed to generate QR code');
-    } finally {
-      setIsGenerating(false);
+    if (payAmount > balance) {
+      Alert.alert('Insufficient Balance', `You only have ₹${balance.toFixed(2)} in your wallet`);
+      return;
     }
-  }, [amount, selectedMerchant, balance, user]);
 
-  const handleDecrypt = useCallback(() => {
-    Alert.alert('Encrypted Data', encryptedData, [{ text: 'OK' }]);
-  }, [encryptedData]);
+    // Generate unique transaction ID
+    const transactionId = `TXN${Date.now()}`;
 
-  if (qrData) {
+    // Create QR data with all payment info
+    const paymentData = {
+      type: 'payment',
+      transactionId: transactionId,
+      studentId: user?.studentId,
+      studentName: user?.name,
+      studentEmail: user?.email,
+      merchantId: selectedMerchant,
+      merchantName: MERCHANT_CATEGORIES[selectedMerchant],
+      amount: payAmount,
+      timestamp: new Date().toISOString(),
+    };
+
+    setQrData(JSON.stringify(paymentData));
+    setQrGenerated(true);
+  };
+
+  const handleReset = () => {
+    setAmount('');
+    setSelectedMerchant('');
+    setQrGenerated(false);
+    setQrData('');
+    loadBalance();
+  };
+
+  const quickAmounts = [50, 100, 200, 500];
+
+  if (qrGenerated) {
+    const paymentInfo = JSON.parse(qrData);
+    
     return (
-      <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.qrContainer}>
-          <Text style={styles.amountText}>₹ {amount}</Text>
-          <Text style={styles.merchantText}>
-            {MERCHANT_CATEGORIES[selectedMerchant] || selectedMerchant}
-          </Text>
+      <ScrollView style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Payment QR Code</Text>
+          <TouchableOpacity onPress={handleReset} style={styles.closeButton}>
+            <Ionicons name="close" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
 
-          <View style={styles.qrWrapper}>
-            <MemoizedQRCode value={qrData} />
+        {/* QR Code Display */}
+        <View style={styles.qrCard}>
+          <View style={styles.qrContainer}>
+            <QRCode
+              value={qrData}
+              size={260}
+              backgroundColor="white"
+              color={COLORS.student}
+            />
           </View>
 
-          <View style={styles.timerBadge}>
-            <Text style={styles.timerText}>⏱ {timeLeft}s</Text>
+          <View style={styles.paymentInfo}>
+            <Text style={styles.amountLabel}>Amount to Pay</Text>
+            <Text style={styles.amountValue}>₹{paymentInfo.amount}</Text>
           </View>
 
-          <TouchableOpacity style={styles.merchantButton}>
-            <Text style={styles.merchantButtonText}>📱 Show to merchant</Text>
-          </TouchableOpacity>
+          <View style={styles.merchantInfo}>
+            <View style={styles.merchantIconSmall}>
+              <Ionicons 
+                name={merchants.find(m => m.id === paymentInfo.merchantId)?.icon as any || 'storefront'} 
+                size={24} 
+                color={COLORS.merchant} 
+              />
+            </View>
+            <View>
+              <Text style={styles.merchantLabel}>Paying to</Text>
+              <Text style={styles.merchantValue}>{paymentInfo.merchantName}</Text>
+            </View>
+          </View>
 
-          <TouchableOpacity style={styles.decryptButton} onPress={handleDecrypt}>
-            <Text style={styles.decryptButtonText}>🔓 Decrypt</Text>
-          </TouchableOpacity>
+          <View style={styles.studentInfo}>
+            <View style={styles.studentAvatar}>
+              <Ionicons name="person" size={24} color="#fff" />
+            </View>
+            <View>
+              <Text style={styles.studentName}>{paymentInfo.studentName}</Text>
+              <Text style={styles.studentId}>ID: {paymentInfo.studentId}</Text>
+            </View>
+          </View>
+        </View>
 
-          <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
-            <Text style={styles.cancelButtonText}>✕ Cancel</Text>
+        {/* Instructions */}
+        <View style={styles.instructionsCard}>
+          <Ionicons name="information-circle" size={32} color={COLORS.primary} />
+          <View style={styles.instructionsContent}>
+            <Text style={styles.instructionsTitle}>Show this QR to Merchant</Text>
+            <Text style={styles.instructionsText}>
+              The merchant will scan this QR code to complete the payment. 
+              Money will be deducted from your wallet automatically.
+            </Text>
+          </View>
+        </View>
+
+        {/* Transaction Details */}
+        <View style={styles.detailsCard}>
+          <Text style={styles.detailsTitle}>Transaction Details</Text>
+          
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Transaction ID</Text>
+            <Text style={styles.detailValue}>{paymentInfo.transactionId}</Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Current Balance</Text>
+            <Text style={styles.detailValue}>₹{balance.toFixed(2)}</Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Balance After Payment</Text>
+            <Text style={[styles.detailValue, { color: COLORS.success }]}>
+              ₹{(balance - paymentInfo.amount).toFixed(2)}
+            </Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Created At</Text>
+            <Text style={styles.detailValue}>
+              {new Date(paymentInfo.timestamp).toLocaleTimeString()}
+            </Text>
+          </View>
+        </View>
+
+        {/* Actions */}
+        <View style={styles.actions}>
+          <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
+            <Ionicons name="refresh" size={20} color="#fff" />
+            <Text style={styles.resetButtonText}>Generate New QR</Text>
           </TouchableOpacity>
-        </ScrollView>
-      </View>
+        </View>
+      </ScrollView>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      <View style={styles.formContainer}>
-        <Text style={styles.title}>Generate Payment QR</Text>
-        
-        <View style={styles.balanceCard}>
-          <Text style={styles.balanceLabel}>Available Balance</Text>
-          <Text style={styles.balanceAmount}>₹ {balance.toFixed(2)}</Text>
+    <ScrollView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.title}>Generate Payment QR</Text>
+          <Text style={styles.subtitle}>Balance: ₹{balance.toFixed(2)}</Text>
         </View>
+      </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Amount (₹)</Text>
+      {/* Amount Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Enter Amount</Text>
+        <View style={styles.amountInputContainer}>
+          <Text style={styles.rupeeSymbol}>₹</Text>
           <TextInput
-            style={styles.input}
-            placeholder="Enter amount"
-            placeholderTextColor="#999"
+            style={styles.amountInput}
+            placeholder="0"
             value={amount}
             onChangeText={setAmount}
             keyboardType="numeric"
-            editable={!isGenerating}
+            placeholderTextColor={COLORS.textLight}
           />
         </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Select Merchant</Text>
-          {Object.entries(MERCHANT_CATEGORIES).map(([key, value]) => (
+        {/* Quick Amount Buttons */}
+        <View style={styles.quickAmounts}>
+          {quickAmounts.map((amt) => (
             <TouchableOpacity
-              key={key}
-              style={[styles.merchantOption, selectedMerchant === key && styles.merchantOptionSelected]}
-              onPress={() => setSelectedMerchant(key)}
-              disabled={isGenerating}
+              key={amt}
+              style={[
+                styles.quickBtn,
+                amount === amt.toString() && styles.quickBtnActive,
+              ]}
+              onPress={() => setAmount(amt.toString())}
             >
-              <Text style={[styles.merchantOptionText, selectedMerchant === key && styles.merchantOptionTextSelected]}>
-                {value}
+              <Text
+                style={[
+                  styles.quickBtnText,
+                  amount === amt.toString() && styles.quickBtnTextActive,
+                ]}
+              >
+                ₹{amt}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
+      </View>
 
+      {/* Select Merchant */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Select Merchant</Text>
+        <View style={styles.merchantsGrid}>
+          {merchants.map((merchant) => (
+            <TouchableOpacity
+              key={merchant.id}
+              style={[
+                styles.merchantCard,
+                selectedMerchant === merchant.id && styles.merchantCardActive,
+              ]}
+              onPress={() => setSelectedMerchant(merchant.id)}
+            >
+              <View style={[
+                styles.merchantIcon,
+                selectedMerchant === merchant.id && styles.merchantIconActive,
+              ]}>
+                <Ionicons
+                  name={merchant.icon as any}
+                  size={28}
+                  color={selectedMerchant === merchant.id ? '#fff' : COLORS.primary}
+                />
+              </View>
+              <Text style={[
+                styles.merchantName,
+                selectedMerchant === merchant.id && styles.merchantNameActive,
+              ]}>
+                {merchant.name}
+              </Text>
+              {selectedMerchant === merchant.id && (
+                <Ionicons name="checkmark-circle" size={20} color={COLORS.student} />
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {/* Generate QR Button */}
+      <View style={styles.section}>
         <TouchableOpacity
-          style={[styles.generateButton, isGenerating && styles.buttonDisabled]}
-          onPress={generateQR}
-          disabled={isGenerating}
+          style={[
+            styles.generateButton,
+            (!amount || !selectedMerchant) && styles.generateButtonDisabled,
+          ]}
+          onPress={handleGenerateQR}
+          disabled={!amount || !selectedMerchant}
         >
-          {isGenerating ? <ActivityIndicator color="#fff" /> : <Text style={styles.generateButtonText}>Generate QR Code</Text>}
+          <Ionicons name="qr-code" size={24} color="#fff" />
+          <Text style={styles.generateButtonText}>
+            Generate Payment QR
+          </Text>
         </TouchableOpacity>
+      </View>
+
+      {/* Info Card */}
+      <View style={styles.infoCardBottom}>
+        <Ionicons name="information-circle" size={24} color={COLORS.primary} />
+        <View style={styles.infoContent}>
+          <Text style={styles.infoTitle}>How it works</Text>
+          <Text style={styles.infoText}>
+            1. Enter the amount you want to pay{'\n'}
+            2. Select the merchant{'\n'}
+            3. Generate QR code{'\n'}
+            4. Show QR to merchant to scan{'\n'}
+            5. Payment completes automatically
+          </Text>
+        </View>
       </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  scrollContent: { flexGrow: 1 },
-  formContainer: { padding: 20 },
-  title: { fontSize: 24, fontWeight: 'bold', color: COLORS.text, marginBottom: 20 },
-  balanceCard: { backgroundColor: COLORS.primary, padding: 20, borderRadius: 12, marginBottom: 24, alignItems: 'center' },
-  balanceLabel: { color: '#fff', fontSize: 14, marginBottom: 8 },
-  balanceAmount: { color: '#fff', fontSize: 32, fontWeight: 'bold' },
-  inputGroup: { marginBottom: 20 },
-  label: { fontSize: 16, fontWeight: '600', color: COLORS.text, marginBottom: 8 },
-  input: { backgroundColor: '#fff', borderRadius: 8, padding: 12, fontSize: 16, borderWidth: 1, borderColor: COLORS.border, color: COLORS.text },
-  merchantOption: { backgroundColor: '#fff', padding: 16, borderRadius: 8, marginBottom: 8, borderWidth: 2, borderColor: COLORS.border },
-  merchantOptionSelected: { borderColor: COLORS.primary, backgroundColor: '#F0EFFF' },
-  merchantOptionText: { fontSize: 16, color: COLORS.text },
-  merchantOptionTextSelected: { color: COLORS.primary, fontWeight: '600' },
-  generateButton: { backgroundColor: COLORS.primary, padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 20 },
-  generateButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-  buttonDisabled: { opacity: 0.5 },
-  qrContainer: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  amountText: { fontSize: 48, fontWeight: 'bold', color: COLORS.primary, marginBottom: 8 },
-  merchantText: { fontSize: 18, color: COLORS.textLight, marginBottom: 24 },
-  qrWrapper: { backgroundColor: '#fff', padding: 20, borderRadius: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4 },
-  timerBadge: { backgroundColor: COLORS.danger, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, marginBottom: 16 },
-  timerText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-  merchantButton: { backgroundColor: COLORS.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, marginBottom: 12, width: '80%', alignItems: 'center' },
-  merchantButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  decryptButton: { backgroundColor: COLORS.warning, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, marginBottom: 12, width: '80%', alignItems: 'center' },
-  decryptButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  cancelButton: { backgroundColor: COLORS.danger, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, width: '80%', alignItems: 'center' },
-  cancelButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  header: {
+    padding: 20,
+    paddingTop: 60,
+    backgroundColor: COLORS.student,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#fff',
+    opacity: 0.9,
+    marginTop: 4,
+  },
+  closeButton: {
+    position: 'absolute',
+    right: 20,
+    top: 60,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  section: {
+    padding: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 16,
+  },
+  amountInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    borderWidth: 2,
+    borderColor: COLORS.student,
+  },
+  rupeeSymbol: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginRight: 8,
+  },
+  amountInput: {
+    flex: 1,
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    padding: 20,
+  },
+  quickAmounts: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 16,
+  },
+  quickBtn: {
+    width: '23%',
+    backgroundColor: COLORS.card,
+    padding: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  quickBtnActive: {
+    backgroundColor: COLORS.student,
+    borderColor: COLORS.student,
+  },
+  quickBtnText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  quickBtnTextActive: {
+    color: '#fff',
+  },
+  merchantsGrid: {
+    gap: 12,
+  },
+  merchantCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.card,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+  },
+  merchantCardActive: {
+    borderColor: COLORS.student,
+    backgroundColor: COLORS.student + '10',
+  },
+  merchantIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: COLORS.primary + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  merchantIconActive: {
+    backgroundColor: COLORS.student,
+  },
+  merchantName: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  merchantNameActive: {
+    color: COLORS.student,
+  },
+  generateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.student,
+    padding: 18,
+    borderRadius: 12,
+    gap: 10,
+  },
+  generateButtonDisabled: {
+    backgroundColor: COLORS.textLight,
+  },
+  generateButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  infoCardBottom: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.card,
+    margin: 20,
+    marginTop: 0,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  infoContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  infoTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  infoText: {
+    fontSize: 12,
+    color: COLORS.textLight,
+    lineHeight: 20,
+  },
+  qrCard: {
+    backgroundColor: COLORS.card,
+    margin: 20,
+    padding: 24,
+    borderRadius: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  qrContainer: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 24,
+    shadowColor: COLORS.student,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  paymentInfo: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  amountLabel: {
+    fontSize: 14,
+    color: COLORS.textLight,
+    marginBottom: 4,
+  },
+  amountValue: {
+    fontSize: 42,
+    fontWeight: 'bold',
+    color: COLORS.student,
+  },
+  merchantInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    width: '100%',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+    gap: 12,
+  },
+  merchantIconSmall: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.merchant + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  merchantLabel: {
+    fontSize: 11,
+    color: COLORS.textLight,
+  },
+  merchantValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  studentInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    width: '100%',
+    padding: 12,
+    borderRadius: 12,
+    gap: 12,
+  },
+  studentAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.student,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  studentName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  studentId: {
+    fontSize: 12,
+    color: COLORS.textLight,
+  },
+  instructionsCard: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.primary + '15',
+    margin: 20,
+    marginTop: 0,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    gap: 12,
+  },
+  instructionsContent: {
+    flex: 1,
+  },
+  instructionsTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 6,
+  },
+  instructionsText: {
+    fontSize: 13,
+    color: COLORS.textLight,
+    lineHeight: 20,
+  },
+  detailsCard: {
+    backgroundColor: COLORS.card,
+    margin: 20,
+    marginTop: 0,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  detailsTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 16,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  detailLabel: {
+    fontSize: 13,
+    color: COLORS.textLight,
+  },
+  detailValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  actions: {
+    padding: 20,
+    paddingTop: 0,
+  },
+  resetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.student,
+    padding: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  resetButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
 });

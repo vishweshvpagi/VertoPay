@@ -1,110 +1,115 @@
-import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-interface User {
-  uid: string;
-  email: string;
-  role: 'student' | 'merchant';
-  studentId?: string;
-  merchantId?: string;
-  merchantName?: string;
-  name: string;
-}
+export const AuthContext = createContext<any>(null);
 
-interface AuthContextType {
-  user: User | null;
-  loading: boolean;
-  register: (email: string, password: string, role: 'student' | 'merchant', extraData: any) => Promise<void>;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
-}
-
-export const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    checkAuth();
+    loadUser();
   }, []);
 
-  const checkAuth = () => {
+  const loadUser = async () => {
     try {
-      const currentUser = localStorage.getItem('@vertopay_current_user');
-      if (currentUser) {
-        setUser(JSON.parse(currentUser));
+      const userData = await AsyncStorage.getItem('CURRENT_USER');
+      if (userData) {
+        setUser(JSON.parse(userData));
       }
     } catch (error) {
-      console.error('Check auth error:', error);
+      console.error('Load user error:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const register = async (email: string, password: string, role: 'student' | 'merchant', extraData: any) => {
-    try {
-      const allUsersData = localStorage.getItem('@vertopay_all_users');
-      const allUsers = allUsersData ? JSON.parse(allUsersData) : [];
-
-      const existingUser = allUsers.find((u: any) => u.email === email);
-      if (existingUser) {
-        alert('Email already registered');
-        return;
-      }
-
-      const newUser: User = {
-        uid: Date.now().toString(),
-        email,
-        role,
-        name: extraData.name,
-        ...(role === 'student' ? { studentId: extraData.studentId } : {}),
-        ...(role === 'merchant' ? { merchantId: extraData.merchantId, merchantName: extraData.merchantName } : {}),
-      };
-
-      allUsers.push({ ...newUser, password });
-      localStorage.setItem('@vertopay_all_users', JSON.stringify(allUsers));
-      localStorage.setItem('@vertopay_current_user', JSON.stringify(newUser));
-      setUser(newUser);
-      
-      window.location.href = role === 'student' ? '/pay' : '/scan';
-    } catch (error) {
-      console.error('Registration error:', error);
-      alert('Registration failed');
-    }
-  };
-
   const login = async (email: string, password: string) => {
     try {
-      const allUsersData = localStorage.getItem('@vertopay_all_users');
-      const allUsers = allUsersData ? JSON.parse(allUsersData) : [];
+      const usersData = await AsyncStorage.getItem('ALL_USERS');
+      const users = usersData ? JSON.parse(usersData) : {};
 
-      const foundUser = allUsers.find((u: any) => u.email === email && u.password === password);
+      const userData = users[email.toLowerCase()];
 
-      if (!foundUser) {
-        alert('Invalid email or password');
-        return;
+      if (!userData) {
+        throw new Error('User not found');
       }
 
-      const { password: _, ...userWithoutPassword } = foundUser;
-      localStorage.setItem('@vertopay_current_user', JSON.stringify(userWithoutPassword));
-      setUser(userWithoutPassword);
-      
-      window.location.href = userWithoutPassword.role === 'student' ? '/pay' : '/scan';
+      if (userData.password !== password) {
+        throw new Error('Invalid password');
+      }
+
+      await AsyncStorage.setItem('AUTH_TOKEN', `token_${email}`);
+      await AsyncStorage.setItem('CURRENT_USER', JSON.stringify(userData));
+      setUser(userData);
+
+      return userData;
     } catch (error) {
-      console.error('Login error:', error);
-      alert('Login failed');
+      throw error;
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('@vertopay_current_user');
-    setUser(null);
-    window.location.href = '/login';
+const register = async (email: string, password: string, role: string, details: any) => {
+  try {
+    const usersData = await AsyncStorage.getItem('ALL_USERS');
+    const users = usersData ? JSON.parse(usersData) : {};
+
+    if (users[email.toLowerCase()]) {
+      throw new Error('User already exists');
+    }
+
+    // For merchants, auto-generate merchant ID from category
+    let merchantId = details.merchantId;
+    if (role === 'merchant' && details.category) {
+      merchantId = `${details.category.toUpperCase()}_01`;
+    }
+
+    const newUser = {
+      email: email.toLowerCase(),
+      password,
+      role,
+      name: details.name,
+      studentId: details.studentId,
+      merchantId: merchantId,
+      merchantName: details.merchantName,
+      category: details.category,
+      createdAt: new Date().toISOString(),
+    };
+
+    users[email.toLowerCase()] = newUser;
+    await AsyncStorage.setItem('ALL_USERS', JSON.stringify(users));
+
+    // Initialize wallet
+    if (role === 'student') {
+      await AsyncStorage.setItem(`WALLET_${email}`, JSON.stringify({ balance: 0, transactions: [] }));
+    } else if (role === 'merchant') {
+      await AsyncStorage.setItem(`MERCHANT_WALLET_${email}`, JSON.stringify({ balance: 0, transactions: [] }));
+    }
+
+    await AsyncStorage.setItem('AUTH_TOKEN', `token_${email}`);
+    await AsyncStorage.setItem('CURRENT_USER', JSON.stringify(newUser));
+    setUser(newUser);
+
+    return newUser;
+  } catch (error) {
+    throw error;
+  }
+};
+
+
+  const logout = async () => {
+    try {
+      await AsyncStorage.removeItem('AUTH_TOKEN');
+      await AsyncStorage.removeItem('CURRENT_USER');
+      setUser(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, register, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
-};
+}

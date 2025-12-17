@@ -1,94 +1,160 @@
-import React, { useEffect } from "react";
-import { FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
-import { COLORS } from "../../constants/Config";
-import { useWallet } from "../../hooks/useWallet";
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  RefreshControl,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '../../hooks/useAuth';
+import { COLORS } from '../../constants/Config';
 
-export default function MerchantHistoryScreen() {
-  const { merchantTransactions, loading, fetchTransactions } = useWallet();
+export default function HistoryScreen() {
+  const { user } = useAuth();
+  const [transactions, setTransactions] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    fetchTransactions();
+    loadTransactions();
   }, []);
 
-  const renderTransaction = ({ item }: any) => (
+  const loadTransactions = async () => {
+    try {
+      const walletData = await AsyncStorage.getItem(`MERCHANT_WALLET_${user.email}`);
+      if (walletData) {
+        const wallet = JSON.parse(walletData);
+        setTransactions(wallet.transactions || []);
+      }
+    } catch (error) {
+      console.error('Load transactions error:', error);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadTransactions();
+    setRefreshing(false);
+  };
+
+  const renderTransaction = ({ item }: { item: any }) => (
     <View style={styles.transactionCard}>
-      <View style={styles.transactionHeader}>
-        <View>
-          <Text style={styles.studentId}>Student: {item.student_id}</Text>
-          <Text style={styles.timestamp}>
-            {new Date(item.timestamp).toLocaleString()}
-          </Text>
-        </View>
-        <Text style={styles.amount}>+₹{item.amount}</Text>
+      <View style={styles.transactionIcon}>
+        <Ionicons name="arrow-down" size={20} color={COLORS.success} />
       </View>
-      <Text style={[styles.status, (styles as any)[`status_${item.status}`]]}>
-        {item.status}
-      </Text>
+      <View style={styles.transactionDetails}>
+        <Text style={styles.transactionStudent}>{item.student}</Text>
+        <Text style={styles.transactionDescription}>{item.description}</Text>
+        <Text style={styles.transactionDate}>
+          {new Date(item.date).toLocaleDateString()} • {new Date(item.date).toLocaleTimeString()}
+        </Text>
+      </View>
+      <Text style={styles.transactionAmount}>+₹{item.amount.toFixed(2)}</Text>
     </View>
   );
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Transaction History</Text>
+        <Text style={styles.headerTitle}>Transaction History</Text>
       </View>
-      <FlatList
-        data={merchantTransactions}
-        renderItem={renderTransaction}
-        keyExtractor={(item) => item.transaction_id}
-        contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={fetchTransactions} />
-        }
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>No transactions yet</Text>
-          </View>
-        }
-      />
+
+      {transactions.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Ionicons name="receipt-outline" size={64} color={COLORS.textLight} />
+          <Text style={styles.emptyText}>No transactions yet</Text>
+          <Text style={styles.emptySubtext}>Your payment history will appear here</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={transactions}
+          renderItem={renderTransaction}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  header: { padding: 20, paddingTop: 60, backgroundColor: COLORS.merchant },
-  title: { fontSize: 24, fontWeight: "bold", color: "#fff" },
-  list: { padding: 20 },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  header: {
+    padding: 24,
+    paddingTop: 60,
+    backgroundColor: COLORS.card,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  list: {
+    padding: 24,
+    gap: 12,
+  },
   transactionCard: {
-    backgroundColor: "#fff",
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
     padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
   },
-  transactionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 8,
+  transactionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.success + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
   },
-  studentId: {
-    fontSize: 14,
-    fontWeight: "600",
+  transactionDetails: {
+    flex: 1,
+  },
+  transactionStudent: {
+    fontSize: 16,
+    fontWeight: '600',
     color: COLORS.text,
     marginBottom: 4,
   },
-  timestamp: { fontSize: 12, color: COLORS.textLight },
-  amount: { fontSize: 18, fontWeight: "bold", color: COLORS.success },
-  status: { fontSize: 12, fontWeight: "600", textTransform: "uppercase" },
-  status_completed: { color: COLORS.success },
-  status_pending: { color: COLORS.warning },
-  status_failed: { color: COLORS.danger },
-  empty: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 100,
+  transactionDescription: {
+    fontSize: 13,
+    color: COLORS.textLight,
+    marginBottom: 4,
   },
-  emptyText: { fontSize: 16, color: COLORS.textLight },
+  transactionDate: {
+    fontSize: 12,
+    color: COLORS.textLight,
+  },
+  transactionAmount: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.success,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 48,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginTop: 16,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: COLORS.textLight,
+    marginTop: 8,
+    textAlign: 'center',
+  },
 });

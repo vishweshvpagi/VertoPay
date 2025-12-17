@@ -1,30 +1,40 @@
-import { useEffect } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { Redirect } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
+import { View, ActivityIndicator } from 'react-native';
+import { COLORS } from '../constants/Config';
 
 export default function Index() {
   const { user, loading } = useAuth();
 
-  useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        // Force redirect to login
-        if (typeof window !== 'undefined') {
-          window.location.href = '/login';
-        }
-      } else {
-        // Redirect based on role
-        const path = user.role === 'student' ? '/pay' : '/scan';
-        if (typeof window !== 'undefined') {
-          window.location.href = path;
-        }
-      }
-    }
-  }, [user, loading]);
+  if (loading) {
+    return (
+      <View style={{ 
+        flex: 1, 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        backgroundColor: COLORS.background 
+      }}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
 
-  return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F5F5' }}>
-      <ActivityIndicator size="large" color="#6C63FF" />
-    </View>
-  );
+  if (!user) {
+    return <Redirect href="/(auth)/login" />;
+  }
+
+  // Role-based redirect
+  if (user.role === 'student') {
+    return <Redirect href="/(student)" />;
+  }
+
+  if (user.role === 'merchant') {
+    return <Redirect href="/(merchant)" />;
+  }
+
+  if (user.role === 'admin') {
+    return <Redirect href="/(admin)" />;
+  }
+
+  return <Redirect href="/(auth)/login" />;
 }

@@ -1,9 +1,9 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,346 +11,453 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { COLORS, MERCHANT_CATEGORIES } from "../../constants/Config";
 import { useAuth } from "../../hooks/useAuth";
 
-const COLORS = {
-  primary: "#6C63FF",
-  background: "#F5F5F5",
-  text: "#212121",
-  textLight: "#757575",
-  border: "#E0E0E0",
-  merchant: "#FF6B6B",
-  student: "#4ECDC4",
-  danger: "#FF5252",
-};
-
 export default function RegisterScreen() {
+  const [role, setRole] = useState<"student" | "merchant" | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [name, setName] = useState("");
-  const [role, setRole] = useState<"student" | "merchant">("student");
   const [studentId, setStudentId] = useState("");
-  const [merchantId, setMerchantId] = useState("");
-  const [merchantName, setMerchantName] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
   const { register } = useAuth();
   const router = useRouter();
 
+  // Convert MERCHANT_CATEGORIES object to array
+  const categories = Object.entries(MERCHANT_CATEGORIES).map(([id, name]) => ({
+    id,
+    name,
+    icon: id === 'CAFE_01' ? 'cafe' :
+          id === 'CAFE_02' ? 'restaurant' :
+          id === 'LIBRARY_01' ? 'library' :
+          id === 'STATIONARY_01' ? 'book' : 'storefront',
+  }));
+
   const handleRegister = async () => {
-    if (!email || !password || !name || !confirmPassword) {
-      alert("Please fill all required fields");
+    if (!role || !email || !password || !name) {
+      Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
 
-    if (password !== confirmPassword) {
-      alert("Passwords do not match!");
+    if (role === 'student' && !studentId) {
+      Alert.alert('Error', 'Please enter your Student ID');
       return;
     }
 
-    if (password.length < 6) {
-      alert("Password must be at least 6 characters");
-      return;
-    }
-
-    if (role === "student" && !studentId) {
-      alert("Please enter Student ID");
-      return;
-    }
-    if (role === "merchant" && (!merchantId || !merchantName)) {
-      alert("Please enter Merchant ID and Name");
+    if (role === 'merchant' && !selectedCategory) {
+      Alert.alert('Error', 'Please select a business category');
       return;
     }
 
     setLoading(true);
-    await register(email, password, role, {
-      name,
-      studentId,
-      merchantId,
-      merchantName,
-    });
-    setLoading(false);
+
+    try {
+      const details: any = { name };
+
+      if (role === 'student') {
+        details.studentId = studentId;
+      } else if (role === 'merchant') {
+        details.merchantName = MERCHANT_CATEGORIES[selectedCategory];
+        details.merchantId = selectedCategory;
+        details.category = selectedCategory;
+      }
+
+      await register(email.toLowerCase().trim(), password, role, details);
+
+      setTimeout(() => {
+        if (role === 'student') {
+          router.replace('/(student)');
+        } else if (role === 'merchant') {
+          router.replace('/(merchant)');
+        }
+      }, 100);
+    } catch (error: any) {
+      setLoading(false);
+      Alert.alert('Registration Failed', error.message || 'Something went wrong');
+    }
   };
 
-  return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.content}>
-          <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Register for VertoPay</Text>
+  if (!role) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+          </TouchableOpacity>
+        </View>
 
-          {/* Role Toggle */}
-          <View style={styles.roleSelector}>
+        <View style={styles.content}>
+          <Text style={styles.title}>Register As</Text>
+          <Text style={styles.subtitle}>Choose your account type</Text>
+
+          <View style={styles.roleButtons}>
             <TouchableOpacity
-              style={[
-                styles.roleButton,
-                role === "student" && styles.roleButtonActiveStudent,
-              ]}
+              style={[styles.roleCard, { backgroundColor: COLORS.student }]}
               onPress={() => setRole("student")}
             >
-              <Text
-                style={[
-                  styles.roleText,
-                  role === "student" && styles.roleTextActive,
-                ]}
-              >
-                👨‍🎓 Student
-              </Text>
+              <Ionicons name="school" size={48} color="#fff" />
+              <Text style={styles.roleTitle}>Student</Text>
+              <Text style={styles.roleDesc}>For campus students</Text>
             </TouchableOpacity>
+
             <TouchableOpacity
-              style={[
-                styles.roleButton,
-                role === "merchant" && styles.roleButtonActiveMerchant,
-              ]}
+              style={[styles.roleCard, { backgroundColor: COLORS.merchant }]}
               onPress={() => setRole("merchant")}
             >
-              <Text
-                style={[
-                  styles.roleText,
-                  role === "merchant" && styles.roleTextActive,
-                ]}
-              >
-                🏪 Merchant
-              </Text>
+              <Ionicons name="storefront" size={48} color="#fff" />
+              <Text style={styles.roleTitle}>Merchant</Text>
+              <Text style={styles.roleDesc}>For campus vendors</Text>
             </TouchableOpacity>
           </View>
+        </View>
+      </View>
+    );
+  }
 
-          <View style={styles.form}>
+  return (
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => setRole(null)}>
+          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.content}>
+        <Text style={styles.title}>
+          {role === "student" ? "Student" : "Merchant"} Registration
+        </Text>
+
+        <View style={styles.form}>
+          {role === "merchant" && (
+            <>
+              <Text style={styles.categoryLabel}>
+                Select Your Business Type
+              </Text>
+              <View style={styles.categoryGrid}>
+                {categories.map((category) => (
+                  <TouchableOpacity
+                    key={category.id}
+                    style={[
+                      styles.categoryCard,
+                      selectedCategory === category.id &&
+                        styles.categoryCardSelected,
+                    ]}
+                    onPress={() => setSelectedCategory(category.id)}
+                  >
+                    <Ionicons
+                      name={category.icon as any}
+                      size={40}
+                      color={
+                        selectedCategory === category.id
+                          ? COLORS.merchant
+                          : COLORS.textLight
+                      }
+                    />
+                    <Text
+                      style={[
+                        styles.categoryName,
+                        selectedCategory === category.id &&
+                          styles.categoryNameSelected,
+                      ]}
+                    >
+                      {category.name}
+                    </Text>
+                    {selectedCategory === category.id && (
+                      <View style={styles.checkmark}>
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={24}
+                          color={COLORS.merchant}
+                        />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {selectedCategory && (
+                <View style={styles.selectedInfo}>
+                  <Ionicons
+                    name="information-circle"
+                    size={20}
+                    color={COLORS.primary}
+                  />
+                  <Text style={styles.selectedInfoText}>
+                    Merchant Name:{" "}
+                    <Text style={styles.selectedInfoBold}>
+                      {MERCHANT_CATEGORIES[selectedCategory]}
+                    </Text>
+                    {'\n'}
+                    Merchant ID:{" "}
+                    <Text style={styles.selectedInfoBold}>
+                      {selectedCategory}
+                    </Text>
+                  </Text>
+                </View>
+              )}
+            </>
+          )}
+
+          <View style={styles.inputContainer}>
+            <Ionicons
+              name="person-outline"
+              size={20}
+              color={COLORS.textLight}
+              style={styles.inputIcon}
+            />
             <TextInput
               style={styles.input}
               placeholder="Full Name"
-              placeholderTextColor="#999"
               value={name}
               onChangeText={setName}
-              editable={!loading}
+              placeholderTextColor={COLORS.textLight}
             />
+          </View>
 
+          <View style={styles.inputContainer}>
+            <Ionicons
+              name="mail-outline"
+              size={20}
+              color={COLORS.textLight}
+              style={styles.inputIcon}
+            />
             <TextInput
               style={styles.input}
               placeholder="Email"
-              placeholderTextColor="#999"
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
-              editable={!loading}
+              placeholderTextColor={COLORS.textLight}
             />
+          </View>
 
-            {/* Password */}
-            <View style={styles.passwordContainer}>
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="Password (min 6 characters)"
-                placeholderTextColor="#999"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                editable={!loading}
-              />
-              <TouchableOpacity
-                style={styles.eyeButton}
-                onPress={() => setShowPassword(!showPassword)}
-              >
-                <Text style={styles.eyeIcon}>{showPassword ? "👁️" : "👁️‍🗨️"}</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Confirm Password */}
-            <View
-              style={[
-                styles.passwordContainer,
-                password && confirmPassword && password !== confirmPassword
-                  ? styles.passwordError
-                  : undefined,
-              ]}
+          <View style={styles.inputContainer}>
+            <Ionicons
+              name="lock-closed-outline"
+              size={20}
+              color={COLORS.textLight}
+              style={styles.inputIcon}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              placeholderTextColor={COLORS.textLight}
+            />
+            <TouchableOpacity
+              onPress={() => setShowPassword(!showPassword)}
+              style={styles.eyeIcon}
             >
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="Confirm Password"
-                placeholderTextColor="#999"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry={!showConfirmPassword}
-                editable={!loading}
+              <Ionicons
+                name={showPassword ? "eye-off-outline" : "eye-outline"}
+                size={20}
+                color={COLORS.textLight}
               />
-              <TouchableOpacity
-                style={styles.eyeButton}
-                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-              >
-                <Text style={styles.eyeIcon}>
-                  {showConfirmPassword ? "👁️" : "👁️‍🗨️"}
-                </Text>
-              </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
+          </View>
 
-            {/* Password Match Indicator */}
-            {password && confirmPassword && (
-              <Text
-                style={
-                  password === confirmPassword
-                    ? styles.matchText
-                    : styles.noMatchText
-                }
-              >
-                {password === confirmPassword
-                  ? "✓ Passwords match"
-                  : "✗ Passwords do not match"}
-              </Text>
-            )}
-
-            {role === "student" && (
+          {role === "student" && (
+            <View style={styles.inputContainer}>
+              <Ionicons
+                name="card-outline"
+                size={20}
+                color={COLORS.textLight}
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={styles.input}
-                placeholder="Student ID (e.g., 22BBTCS001)"
-                placeholderTextColor="#999"
+                placeholder="Student ID (e.g., STU001)"
                 value={studentId}
                 onChangeText={setStudentId}
-                editable={!loading}
+                placeholderTextColor={COLORS.textLight}
               />
-            )}
-
-            {role === "merchant" && (
-              <>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Merchant ID (e.g., CAFE_01)"
-                  placeholderTextColor="#999"
-                  value={merchantId}
-                  onChangeText={setMerchantId}
-                  editable={!loading}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Business Name"
-                  placeholderTextColor="#999"
-                  value={merchantName}
-                  onChangeText={setMerchantName}
-                  editable={!loading}
-                />
-              </>
-            )}
-
-            <TouchableOpacity
-              style={[styles.button, loading && styles.buttonDisabled]}
-              onPress={handleRegister}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>
-                  Register as {role === "student" ? "Student" : "Merchant"}
-                </Text>
-              )}
-            </TouchableOpacity>
-
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>Already have an account? </Text>
-              <TouchableOpacity onPress={() => router.push("/(auth)/login")}>
-                <Text style={styles.linkText}>Login</Text>
-              </TouchableOpacity>
             </View>
-          </View>
+          )}
+
+          <TouchableOpacity
+            style={styles.button}
+            onPress={handleRegister}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Register</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.loginLink}
+          >
+            <Text style={styles.link}>
+              Already have an account?{" "}
+              <Text style={styles.linkBold}>Login</Text>
+            </Text>
+          </TouchableOpacity>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  scrollContent: { flexGrow: 1 },
-  content: {
+  container: {
     flex: 1,
-    justifyContent: "center",
+    backgroundColor: COLORS.background,
+  },
+  header: {
     padding: 20,
     paddingTop: 60,
-    paddingBottom: 40,
+  },
+  content: {
+    padding: 24,
   },
   title: {
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: "bold",
-    color: COLORS.primary,
-    textAlign: "center",
+    color: COLORS.text,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
     color: COLORS.textLight,
-    textAlign: "center",
-    marginBottom: 24,
+    marginBottom: 32,
   },
-  roleSelector: { flexDirection: "row", marginBottom: 24, gap: 12 },
-  roleButton: {
-    flex: 1,
-    padding: 14,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: COLORS.border,
-    backgroundColor: "#fff",
+  roleButtons: {
+    gap: 16,
+  },
+  roleCard: {
+    padding: 32,
+    borderRadius: 16,
     alignItems: "center",
   },
-  roleButtonActiveStudent: {
-    borderColor: COLORS.student,
-    backgroundColor: COLORS.student,
+  roleTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#fff",
+    marginTop: 16,
   },
-  roleButtonActiveMerchant: {
-    borderColor: COLORS.merchant,
-    backgroundColor: COLORS.merchant,
+  roleDesc: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.8)",
+    marginTop: 4,
   },
-  roleText: { fontSize: 16, color: COLORS.text, fontWeight: "600" },
-  roleTextActive: { color: "#fff" },
-  form: { width: "100%" },
-  input: {
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    padding: 16,
-    fontSize: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    color: COLORS.text,
+  form: {
+    gap: 16,
   },
-  passwordContainer: {
+  inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 8,
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
+  },
+  inputIcon: {
+    marginRight: 12,
+  },
+  input: {
+    flex: 1,
+    padding: 16,
+    fontSize: 16,
+    color: COLORS.text,
+  },
+  eyeIcon: {
+    padding: 8,
+  },
+  categoryLabel: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: COLORS.text,
+    marginTop: 8,
     marginBottom: 8,
   },
-  passwordError: { borderColor: COLORS.danger, borderWidth: 2 },
-  passwordInput: { flex: 1, padding: 16, fontSize: 16, color: COLORS.text },
-  eyeButton: { padding: 12 },
-  eyeIcon: { fontSize: 20 },
-  matchText: {
-    color: "#4CAF50",
-    fontSize: 14,
-    marginBottom: 12,
-    fontWeight: "600",
+  categoryGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginBottom: 8,
   },
-  noMatchText: {
-    color: COLORS.danger,
+  categoryCard: {
+    flex: 1,
+    minWidth: "45%",
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    position: "relative",
+    gap: 12,
+  },
+  categoryCardSelected: {
+    borderColor: COLORS.merchant,
+    backgroundColor: COLORS.merchant + "10",
+  },
+  categoryName: {
     fontSize: 14,
-    marginBottom: 12,
     fontWeight: "600",
+    color: COLORS.textLight,
+    textAlign: "center",
+  },
+  categoryNameSelected: {
+    color: COLORS.merchant,
+    fontWeight: "bold",
+  },
+  checkmark: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+  },
+  selectedInfo: {
+    flexDirection: "row",
+    alignItems: 'flex-start',
+    backgroundColor: COLORS.primary + "10",
+    padding: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  selectedInfoText: {
+    flex: 1,
+    fontSize: 14,
+    color: COLORS.text,
+    lineHeight: 20,
+  },
+  selectedInfoBold: {
+    fontWeight: "bold",
+    color: COLORS.merchant,
   },
   button: {
     backgroundColor: COLORS.primary,
-    padding: 16,
-    borderRadius: 8,
+    padding: 18,
+    borderRadius: 12,
     alignItems: "center",
     marginTop: 8,
   },
-  buttonDisabled: { opacity: 0.5 },
-  buttonText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
-  footer: { flexDirection: "row", justifyContent: "center", marginTop: 24 },
-  footerText: { fontSize: 16, color: COLORS.textLight },
-  linkText: { fontSize: 16, color: COLORS.primary, fontWeight: "600" },
+  buttonText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  loginLink: {
+    marginTop: 8,
+    alignItems: "center",
+  },
+  link: {
+    fontSize: 15,
+    color: COLORS.textLight,
+  },
+  linkBold: {
+    color: COLORS.primary,
+    fontWeight: "700",
+  },
 });
