@@ -11,6 +11,8 @@
 
 **A secure, blockchain-inspired QR-based payment system for college campuses**
 
+> **Last Updated:** January 2025
+
 [Features](#-features) • [Demo](#-demo) • [Installation](#-installation) • [Architecture](#-architecture) • [Contributing](#-contributing)
 
 </div>

@@ -1,7 +1,7 @@
-import { useContext } from 'react';
-import { AuthContext } from '../contexts/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useContext } from 'react';
+import { AuthContext } from '../contexts/AuthContext';
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -9,6 +9,15 @@ export const useAuth = () => {
   if (!context) {
     throw new Error('useAuth must be used within AuthProvider');
   }
+
+  // Track activity when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      if (context.user && context.updateLastActivity) {
+        context.updateLastActivity();
+      }
+    }, [context.user])
+  );
 
   // Enhanced logout function
   const enhancedLogout = async () => {

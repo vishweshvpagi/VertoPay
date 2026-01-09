@@ -1,10 +1,10 @@
 import React from "react";
 import {
-  TextInput,
-  StyleSheet,
-  View,
-  Text,
-  TextInputProps,
+    StyleSheet,
+    Text,
+    TextInput,
+    TextInputProps,
+    View,
 } from "react-native";
 import { COLORS } from "../../constants/Config";
 
@@ -24,7 +24,7 @@ export default function Input({
   return (
     <View style={styles.container}>
       {label && <Text style={styles.label}>{label}</Text>}
-      <View style={[styles.inputContainer, error && styles.inputError]}>
+      <View style={[styles.inputContainer, error ? styles.inputError : undefined]}>
         {icon && <View style={styles.iconContainer}>{icon}</View>}
         <TextInput
           style={[

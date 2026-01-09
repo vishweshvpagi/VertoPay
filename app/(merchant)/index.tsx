@@ -1,17 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  RefreshControl,
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAuth } from '../../hooks/useAuth';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+    Dimensions,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import { COLORS } from '../../constants/Config';
+import { useAuth } from '../../hooks/useAuth';
 
 export default function MerchantHomeScreen() {
   const { user } = useAuth();
@@ -28,6 +29,7 @@ export default function MerchantHomeScreen() {
 
   const loadData = async () => {
     try {
+      if (!user?.email) return;
       const walletData = await AsyncStorage.getItem(`MERCHANT_WALLET_${user.email}`);
       
       if (walletData) {
@@ -105,7 +107,7 @@ export default function MerchantHomeScreen() {
             onPress={() => router.push('/(merchant)/scan')}
           >
             <View style={[styles.actionIcon, { backgroundColor: COLORS.merchant + '20' }]}>
-              <Ionicons name="scan" size={28} color={COLORS.merchant} />
+              <Ionicons name="scan" size={24} color={COLORS.merchant} />
             </View>
             <Text style={styles.actionText}>Scan QR</Text>
           </TouchableOpacity>
@@ -115,7 +117,7 @@ export default function MerchantHomeScreen() {
             onPress={() => router.push('/(merchant)/history')}
           >
             <View style={[styles.actionIcon, { backgroundColor: COLORS.primary + '20' }]}>
-              <Ionicons name="time" size={28} color={COLORS.primary} />
+              <Ionicons name="time" size={24} color={COLORS.primary} />
             </View>
             <Text style={styles.actionText}>History</Text>
           </TouchableOpacity>
@@ -125,9 +127,9 @@ export default function MerchantHomeScreen() {
             onPress={() => router.push('/(merchant)/transactions')}
           >
             <View style={[styles.actionIcon, { backgroundColor: COLORS.success + '20' }]}>
-              <Ionicons name="receipt" size={28} color={COLORS.success} />
+              <Ionicons name="receipt" size={24} color={COLORS.success} />
             </View>
-            <Text style={styles.actionText}>All Transactions</Text>
+            <Text style={styles.actionText}>Transactions</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -135,9 +137,129 @@ export default function MerchantHomeScreen() {
             onPress={() => router.push('/(merchant)/profile')}
           >
             <View style={[styles.actionIcon, { backgroundColor: COLORS.textLight + '20' }]}>
-              <Ionicons name="settings" size={28} color={COLORS.textLight} />
+              <Ionicons name="settings" size={24} color={COLORS.textLight} />
             </View>
             <Text style={styles.actionText}>Settings</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push('/(merchant)/scan')}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: COLORS.merchant + '20' }]}>
+              <Ionicons name="stats-chart" size={24} color={COLORS.merchant} />
+            </View>
+            <Text style={styles.actionText}>Analytics</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push('/(merchant)/history')}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: COLORS.primary + '20' }]}>
+              <Ionicons name="wallet" size={24} color={COLORS.primary} />
+            </View>
+            <Text style={styles.actionText}>Wallet</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push('/(merchant)/transactions')}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: COLORS.success + '20' }]}>
+              <Ionicons name="download" size={24} color={COLORS.success} />
+            </View>
+            <Text style={styles.actionText}>Export</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push('/(merchant)/profile')}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: COLORS.warning + '20' }]}>
+              <Ionicons name="notifications" size={24} color={COLORS.warning} />
+            </View>
+            <Text style={styles.actionText}>Alerts</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push('/(merchant)/scan')}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: COLORS.merchant + '20' }]}>
+              <Ionicons name="people" size={24} color={COLORS.merchant} />
+            </View>
+            <Text style={styles.actionText}>Customers</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push('/(merchant)/history')}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: COLORS.primary + '20' }]}>
+              <Ionicons name="calendar" size={24} color={COLORS.primary} />
+            </View>
+            <Text style={styles.actionText}>Schedule</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push('/(merchant)/transactions')}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: COLORS.success + '20' }]}>
+              <Ionicons name="help-circle" size={24} color={COLORS.success} />
+            </View>
+            <Text style={styles.actionText}>Help</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push('/(merchant)/profile')}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: COLORS.danger + '20' }]}>
+              <Ionicons name="shield" size={24} color={COLORS.danger} />
+            </View>
+            <Text style={styles.actionText}>Security</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push('/(merchant)/scan')}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: COLORS.merchant + '20' }]}>
+              <Ionicons name="card" size={24} color={COLORS.merchant} />
+            </View>
+            <Text style={styles.actionText}>Payments</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push('/(merchant)/history')}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: COLORS.primary + '20' }]}>
+              <Ionicons name="storefront" size={24} color={COLORS.primary} />
+            </View>
+            <Text style={styles.actionText}>Store</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push('/(merchant)/transactions')}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: COLORS.success + '20' }]}>
+              <Ionicons name="mail" size={24} color={COLORS.success} />
+            </View>
+            <Text style={styles.actionText}>Support</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push('/(merchant)/profile')}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: COLORS.textLight + '20' }]}>
+              <Ionicons name="ellipsis-horizontal" size={24} color={COLORS.textLight} />
+            </View>
+            <Text style={styles.actionText}>More</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -283,28 +405,32 @@ const styles = StyleSheet.create({
   actionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 10,
+    justifyContent: 'space-between',
   },
   actionCard: {
-    flex: 1,
-    minWidth: '45%',
+    width: (Dimensions.get('window').width - 68) / 4,
     backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 12,
+    padding: 12,
     alignItems: 'center',
-    gap: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   actionIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 6,
   },
   actionText: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '600',
     color: COLORS.text,
+    textAlign: 'center',
   },
   emptyState: {
     backgroundColor: COLORS.card,
