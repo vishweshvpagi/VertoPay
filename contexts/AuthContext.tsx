@@ -1,24 +1,144 @@
-import React, { createContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, useEffect, useRef, useState } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
+
+interface TokenData {
+  token: string;
+  email: string;
+  expiresAt: number;
+  lastActivity: number;
+}
 
 export const AuthContext = createContext<any>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
   useEffect(() => {
     loadUser();
+    
+    // Setup app state listener
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    
+    return () => {
+      subscription.remove();
+    };
   }, []);
+
+  // Removed inactivity timer - users stay logged in until explicit logout
+
+  const handleAppStateChange = (nextAppState: AppStateStatus) => {
+    if (appStateRef.current.match(/inactive|background/) && nextAppState === 'active') {
+      // App came to foreground - check session validity
+      validateSession();
+    }
+    appStateRef.current = nextAppState;
+  };
+
+  const createToken = (email: string): TokenData => {
+    const now = Date.now();
+    // Set expiration to far future (effectively never expires)
+    // Users stay logged in until explicit logout
+    return {
+      token: `token_${email}_${now}`,
+      email: email.toLowerCase(),
+      expiresAt: now + 100 * 365 * 24 * 60 * 60 * 1000, // 100 years (effectively never)
+      lastActivity: now,
+    };
+  };
+
+  const validateToken = async (): Promise<boolean> => {
+    try {
+      const tokenDataStr = await AsyncStorage.getItem('AUTH_TOKEN');
+      if (!tokenDataStr) return false;
+
+      // Token exists - user stays logged in (no expiration check)
+      // Only validate that token structure is valid
+      const tokenData: TokenData = JSON.parse(tokenDataStr);
+      
+      // Update last activity for tracking purposes only
+      tokenData.lastActivity = Date.now();
+      await AsyncStorage.setItem('AUTH_TOKEN', JSON.stringify(tokenData));
+
+      return true;
+    } catch (error) {
+      console.error('Token validation error:', error);
+      return false;
+    }
+  };
+
+  const refreshToken = async (): Promise<boolean> => {
+    try {
+      // No need to refresh - tokens don't expire
+      // Just ensure token exists
+      const tokenDataStr = await AsyncStorage.getItem('AUTH_TOKEN');
+      return !!tokenDataStr;
+    } catch (error) {
+      console.error('Token refresh error:', error);
+      return false;
+    }
+  };
+
+  const clearSession = async () => {
+    try {
+      await AsyncStorage.removeItem('AUTH_TOKEN');
+      await AsyncStorage.removeItem('CURRENT_USER');
+      setUser(null);
+    } catch (error) {
+      console.error('Clear session error:', error);
+    }
+  };
+
+  // Removed inactivity timer - users stay logged in until explicit logout
+
+  const updateLastActivity = async () => {
+    try {
+      // Update activity timestamp for tracking (no automatic logout)
+      const tokenDataStr = await AsyncStorage.getItem('AUTH_TOKEN');
+      if (tokenDataStr) {
+        const tokenData: TokenData = JSON.parse(tokenDataStr);
+        tokenData.lastActivity = Date.now();
+        await AsyncStorage.setItem('AUTH_TOKEN', JSON.stringify(tokenData));
+      }
+    } catch (error) {
+      console.error('Update activity error:', error);
+    }
+  };
+
+  const validateSession = async () => {
+    // Just check if token exists - no expiration validation
+    const isValid = await validateToken();
+    if (!isValid && user) {
+      // Token missing but user still in state - clear it
+      setUser(null);
+    }
+  };
 
   const loadUser = async () => {
     try {
+      const isValid = await validateToken();
+      if (!isValid) {
+        setLoading(false);
+        return;
+      }
+
       const userData = await AsyncStorage.getItem('CURRENT_USER');
       if (userData) {
-        setUser(JSON.parse(userData));
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+        // Ensure token exists (create if missing for backward compatibility)
+        const tokenExists = await refreshToken();
+        if (!tokenExists) {
+          // Create token if missing (for users who logged in before session management)
+          const tokenData = createToken(parsedUser.email);
+          await AsyncStorage.setItem('AUTH_TOKEN', JSON.stringify(tokenData));
+        }
       }
     } catch (error) {
       console.error('Load user error:', error);
+      await clearSession();
     } finally {
       setLoading(false);
     }
@@ -39,7 +159,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Invalid password');
       }
 
-      await AsyncStorage.setItem('AUTH_TOKEN', `token_${email}`);
+      // Create persistent token (no expiration)
+      const tokenData = createToken(email.toLowerCase());
+      await AsyncStorage.setItem('AUTH_TOKEN', JSON.stringify(tokenData));
       await AsyncStorage.setItem('CURRENT_USER', JSON.stringify(userData));
       setUser(userData);
 
@@ -80,17 +202,20 @@ const register = async (email: string, password: string, role: string, details: 
     await AsyncStorage.setItem('ALL_USERS', JSON.stringify(users));
 
     // Initialize wallet
+    const emailLower = email.toLowerCase();
     if (role === 'student') {
-      await AsyncStorage.setItem(`WALLET_${email}`, JSON.stringify({ balance: 0, transactions: [] }));
+      await AsyncStorage.setItem(`WALLET_${emailLower}`, JSON.stringify({ balance: 0, transactions: [] }));
     } else if (role === 'merchant') {
-      await AsyncStorage.setItem(`MERCHANT_WALLET_${email}`, JSON.stringify({ balance: 0, transactions: [] }));
+      await AsyncStorage.setItem(`MERCHANT_WALLET_${emailLower}`, JSON.stringify({ balance: 0, transactions: [] }));
     }
 
-    await AsyncStorage.setItem('AUTH_TOKEN', `token_${email}`);
-    await AsyncStorage.setItem('CURRENT_USER', JSON.stringify(newUser));
-    setUser(newUser);
+      // Create persistent token (no expiration)
+      const tokenData = createToken(email.toLowerCase());
+      await AsyncStorage.setItem('AUTH_TOKEN', JSON.stringify(tokenData));
+      await AsyncStorage.setItem('CURRENT_USER', JSON.stringify(newUser));
+      setUser(newUser);
 
-    return newUser;
+      return newUser;
   } catch (error) {
     throw error;
   }
@@ -99,16 +224,26 @@ const register = async (email: string, password: string, role: string, details: 
 
   const logout = async () => {
     try {
-      await AsyncStorage.removeItem('AUTH_TOKEN');
-      await AsyncStorage.removeItem('CURRENT_USER');
-      setUser(null);
+      // Clear session - user explicitly logging out
+      await clearSession();
     } catch (error) {
       console.error('Logout error:', error);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        login,
+        register,
+        logout,
+        validateSession,
+        updateLastActivity,
+        refreshToken,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

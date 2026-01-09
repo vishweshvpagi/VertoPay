@@ -1,17 +1,31 @@
 export const COLORS = {
-  primary: "#6C63FF",
-  secondary: "#4CAF50",
-  danger: "#FF5252",
-  warning: "#FFC107",
-  background: "#F5F5F5",
+  // Premium color palette
+  primary: "#6366F1", // Indigo - more premium
+  primaryDark: "#4F46E5",
+  primaryLight: "#818CF8",
+  secondary: "#10B981", // Emerald green
+  danger: "#EF4444",
+  warning: "#F59E0B",
+  background: "#F8FAFC", // Softer background
+  backgroundDark: "#0F172A",
   card: "#FFFFFF",
-  text: "#212121",
-  textLight: "#757575",
-  border: "#E0E0E0",
-  success: "#4CAF50",
-  merchant: "#FF6B6B",
-  student: "#4ECDC4",
-  admin: "#9B59B6",
+  cardElevated: "#FFFFFF",
+  text: "#1E293B", // Darker, richer text
+  textSecondary: "#475569",
+  textLight: "#94A3B8",
+  border: "#E2E8F0", // Softer borders
+  borderLight: "#F1F5F9",
+  success: "#10B981",
+  merchant: "#F43F5E", // Rose
+  student: "#06B6D4", // Cyan - more vibrant
+  studentGradient: ["#06B6D4", "#0891B2"], // Gradient colors
+  admin: "#8B5CF6", // Purple
+  // Premium gradients (for simulation)
+  gradientStart: "#06B6D4",
+  gradientEnd: "#0891B2",
+  // Shadows
+  shadow: "rgba(0, 0, 0, 0.08)",
+  shadowDark: "rgba(0, 0, 0, 0.12)",
 };
 
 export const MERCHANT_CATEGORIES: Record<string, string> = {
@@ -28,6 +42,13 @@ export const USER_ROLES = {
 };
 
 export const QR_EXPIRY_TIME = 60000;
+
+// Session Management Configuration
+export const SESSION_CONFIG = {
+  TOKEN_EXPIRY: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
+  INACTIVITY_TIMEOUT: 30 * 60 * 1000, // 30 minutes of inactivity
+  REFRESH_THRESHOLD: 24 * 60 * 60 * 1000, // Refresh token if less than 24 hours remaining
+};
 
 export const FRAUD_RULES = {
   HIGH_AMOUNT_THRESHOLD: 1000,

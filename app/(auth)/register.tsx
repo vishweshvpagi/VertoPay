@@ -2,14 +2,16 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { COLORS, MERCHANT_CATEGORIES } from "../../constants/Config";
 import { useAuth } from "../../hooks/useAuth";
@@ -37,14 +39,50 @@ export default function RegisterScreen() {
           id === 'STATIONARY_01' ? 'book' : 'storefront',
   }));
 
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePassword = (password: string): { valid: boolean; message?: string } => {
+    if (password.length < 6) {
+      return { valid: false, message: 'Password must be at least 6 characters' };
+    }
+    if (password.length > 50) {
+      return { valid: false, message: 'Password must be less than 50 characters' };
+    }
+    return { valid: true };
+  };
+
   const handleRegister = async () => {
     if (!role || !email || !password || !name) {
       Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
 
+    if (!validateEmail(email)) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address');
+      return;
+    }
+
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      Alert.alert('Invalid Password', passwordValidation.message || 'Password does not meet requirements');
+      return;
+    }
+
+    if (name.trim().length < 2) {
+      Alert.alert('Invalid Name', 'Name must be at least 2 characters');
+      return;
+    }
+
     if (role === 'student' && !studentId) {
       Alert.alert('Error', 'Please enter your Student ID');
+      return;
+    }
+
+    if (role === 'student' && studentId.trim().length < 3) {
+      Alert.alert('Invalid Student ID', 'Student ID must be at least 3 characters');
       return;
     }
 
@@ -56,10 +94,10 @@ export default function RegisterScreen() {
     setLoading(true);
 
     try {
-      const details: any = { name };
+      const details: any = { name: name.trim() };
 
       if (role === 'student') {
-        details.studentId = studentId;
+        details.studentId = studentId.trim();
       } else if (role === 'merchant') {
         details.merchantName = MERCHANT_CATEGORIES[selectedCategory];
         details.merchantId = selectedCategory;
@@ -83,60 +121,96 @@ export default function RegisterScreen() {
 
   if (!role) {
     return (
-      <View style={styles.container}>
+      <KeyboardAvoidingView 
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity 
+            onPress={() => router.back()}
+            style={styles.backButton}
+            activeOpacity={0.7}
+          >
             <Ionicons name="arrow-back" size={24} color={COLORS.text} />
           </TouchableOpacity>
         </View>
 
         <View style={styles.content}>
-          <Text style={styles.title}>Register As</Text>
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>Register As</Text>
+            <View style={styles.titleUnderline} />
+          </View>
           <Text style={styles.subtitle}>Choose your account type</Text>
 
           <View style={styles.roleButtons}>
             <TouchableOpacity
-              style={[styles.roleCard, { backgroundColor: COLORS.student }]}
+              style={[styles.roleCard, styles.roleCardStudent]}
               onPress={() => setRole("student")}
+              activeOpacity={0.8}
             >
-              <Ionicons name="school" size={48} color="#fff" />
+              <View style={styles.roleIconContainer}>
+                <Ionicons name="school" size={52} color="#fff" />
+              </View>
               <Text style={styles.roleTitle}>Student</Text>
               <Text style={styles.roleDesc}>For campus students</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.roleCard, { backgroundColor: COLORS.merchant }]}
+              style={[styles.roleCard, styles.roleCardMerchant]}
               onPress={() => setRole("merchant")}
+              activeOpacity={0.8}
             >
-              <Ionicons name="storefront" size={48} color="#fff" />
+              <View style={styles.roleIconContainer}>
+                <Ionicons name="storefront" size={52} color="#fff" />
+              </View>
               <Text style={styles.roleTitle}>Merchant</Text>
               <Text style={styles.roleDesc}>For campus vendors</Text>
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => setRole(null)}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-        </TouchableOpacity>
-      </View>
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
+      <ScrollView 
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.header}>
+          <TouchableOpacity 
+            onPress={() => setRole(null)}
+            style={styles.backButton}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+          </TouchableOpacity>
+        </View>
 
-      <View style={styles.content}>
-        <Text style={styles.title}>
-          {role === "student" ? "Student" : "Merchant"} Registration
-        </Text>
+        <View style={styles.content}>
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>
+              {role === "student" ? "Student" : "Merchant"} Registration
+            </Text>
+            <View style={styles.titleUnderline} />
+          </View>
 
         <View style={styles.form}>
           {role === "merchant" && (
             <>
-              <Text style={styles.categoryLabel}>
-                Select Your Business Type
-              </Text>
+              <View style={styles.categoryLabelContainer}>
+                <Text style={styles.categoryLabel}>
+                  Select Your Business Type
+                </Text>
+                <View style={styles.categoryLabelUnderline} />
+              </View>
               <View style={styles.categoryGrid}>
                 {categories.map((category) => (
                   <TouchableOpacity
@@ -147,16 +221,22 @@ export default function RegisterScreen() {
                         styles.categoryCardSelected,
                     ]}
                     onPress={() => setSelectedCategory(category.id)}
+                    activeOpacity={0.7}
                   >
-                    <Ionicons
-                      name={category.icon as any}
-                      size={40}
-                      color={
-                        selectedCategory === category.id
-                          ? COLORS.merchant
-                          : COLORS.textLight
-                      }
-                    />
+                    <View style={[
+                      styles.categoryIconContainer,
+                      selectedCategory === category.id && styles.categoryIconContainerSelected
+                    ]}>
+                      <Ionicons
+                        name={category.icon as any}
+                        size={36}
+                        color={
+                          selectedCategory === category.id
+                            ? COLORS.merchant
+                            : COLORS.textSecondary
+                        }
+                      />
+                    </View>
                     <Text
                       style={[
                         styles.categoryName,
@@ -170,7 +250,7 @@ export default function RegisterScreen() {
                       <View style={styles.checkmark}>
                         <Ionicons
                           name="checkmark-circle"
-                          size={24}
+                          size={26}
                           color={COLORS.merchant}
                         />
                       </View>
@@ -181,50 +261,59 @@ export default function RegisterScreen() {
 
               {selectedCategory && (
                 <View style={styles.selectedInfo}>
-                  <Ionicons
-                    name="information-circle"
-                    size={20}
-                    color={COLORS.primary}
-                  />
-                  <Text style={styles.selectedInfoText}>
-                    Merchant Name:{" "}
-                    <Text style={styles.selectedInfoBold}>
-                      {MERCHANT_CATEGORIES[selectedCategory]}
+                  <View style={styles.selectedInfoIconContainer}>
+                    <Ionicons
+                      name="information-circle"
+                      size={22}
+                      color={COLORS.primary}
+                    />
+                  </View>
+                  <View style={styles.selectedInfoTextContainer}>
+                    <Text style={styles.selectedInfoText}>
+                      Merchant Name:{" "}
+                      <Text style={styles.selectedInfoBold}>
+                        {MERCHANT_CATEGORIES[selectedCategory]}
+                      </Text>
+                      {'\n'}
+                      Merchant ID:{" "}
+                      <Text style={styles.selectedInfoBold}>
+                        {selectedCategory}
+                      </Text>
                     </Text>
-                    {'\n'}
-                    Merchant ID:{" "}
-                    <Text style={styles.selectedInfoBold}>
-                      {selectedCategory}
-                    </Text>
-                  </Text>
+                  </View>
                 </View>
               )}
             </>
           )}
 
           <View style={styles.inputContainer}>
-            <Ionicons
-              name="person-outline"
-              size={20}
-              color={COLORS.textLight}
-              style={styles.inputIcon}
-            />
+            <View style={styles.inputIconContainer}>
+              <Ionicons
+                name="person-outline"
+                size={22}
+                color={COLORS.primary}
+              />
+            </View>
             <TextInput
               style={styles.input}
               placeholder="Full Name"
               value={name}
               onChangeText={setName}
               placeholderTextColor={COLORS.textLight}
+              autoCorrect={false}
+              autoComplete="name"
+              textContentType="name"
             />
           </View>
 
           <View style={styles.inputContainer}>
-            <Ionicons
-              name="mail-outline"
-              size={20}
-              color={COLORS.textLight}
-              style={styles.inputIcon}
-            />
+            <View style={styles.inputIconContainer}>
+              <Ionicons
+                name="mail-outline"
+                size={22}
+                color={COLORS.primary}
+              />
+            </View>
             <TextInput
               style={styles.input}
               placeholder="Email"
@@ -233,78 +322,95 @@ export default function RegisterScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               placeholderTextColor={COLORS.textLight}
+              autoCorrect={false}
+              autoComplete="email"
+              textContentType="emailAddress"
             />
           </View>
 
           <View style={styles.inputContainer}>
-            <Ionicons
-              name="lock-closed-outline"
-              size={20}
-              color={COLORS.textLight}
-              style={styles.inputIcon}
-            />
+            <View style={styles.inputIconContainer}>
+              <Ionicons
+                name="lock-closed-outline"
+                size={22}
+                color={COLORS.primary}
+              />
+            </View>
             <TextInput
               style={styles.input}
-              placeholder="Password"
+              placeholder="Password (min. 6 characters)"
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
               placeholderTextColor={COLORS.textLight}
+              autoCorrect={false}
+              autoComplete="password-new"
+              textContentType="newPassword"
             />
             <TouchableOpacity
               onPress={() => setShowPassword(!showPassword)}
               style={styles.eyeIcon}
+              activeOpacity={0.7}
             >
               <Ionicons
                 name={showPassword ? "eye-off-outline" : "eye-outline"}
-                size={20}
-                color={COLORS.textLight}
+                size={22}
+                color={COLORS.textSecondary}
               />
             </TouchableOpacity>
           </View>
 
           {role === "student" && (
             <View style={styles.inputContainer}>
-              <Ionicons
-                name="card-outline"
-                size={20}
-                color={COLORS.textLight}
-                style={styles.inputIcon}
-              />
+              <View style={styles.inputIconContainer}>
+                <Ionicons
+                  name="card-outline"
+                  size={22}
+                  color={COLORS.primary}
+                />
+              </View>
               <TextInput
                 style={styles.input}
                 placeholder="Student ID (e.g., STU001)"
                 value={studentId}
                 onChangeText={setStudentId}
                 placeholderTextColor={COLORS.textLight}
+                autoCorrect={false}
+                autoCapitalize="characters"
               />
             </View>
           )}
 
           <TouchableOpacity
-            style={styles.button}
+            style={[styles.button, loading && styles.buttonDisabled]}
             onPress={handleRegister}
             disabled={loading}
+            activeOpacity={0.8}
           >
             {loading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color="#fff" size="small" />
             ) : (
-              <Text style={styles.buttonText}>Register</Text>
+              <>
+                <Text style={styles.buttonText}>Register</Text>
+                <Ionicons name="arrow-forward" size={20} color="#fff" />
+              </>
             )}
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={() => router.back()}
             style={styles.loginLink}
+            activeOpacity={0.7}
           >
             <Text style={styles.link}>
               Already have an account?{" "}
               <Text style={styles.linkBold}>Login</Text>
             </Text>
           </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -313,148 +419,302 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 40,
+  },
   header: {
     padding: 20,
-    paddingTop: 60,
+    paddingTop: Platform.OS === 'ios' ? 60 : 50,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.card,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   content: {
     padding: 24,
+    paddingTop: 8,
+  },
+  titleContainer: {
+    marginBottom: 8,
   },
   title: {
-    fontSize: 32,
-    fontWeight: "bold",
+    fontSize: 36,
+    fontWeight: "700",
     color: COLORS.text,
     marginBottom: 8,
+    letterSpacing: -0.5,
+  },
+  titleUnderline: {
+    width: 50,
+    height: 4,
+    backgroundColor: COLORS.primary,
+    borderRadius: 2,
+    opacity: 0.7,
   },
   subtitle: {
     fontSize: 16,
-    color: COLORS.textLight,
+    color: COLORS.textSecondary,
     marginBottom: 32,
+    fontWeight: '500',
   },
   roleButtons: {
-    gap: 16,
+    gap: 20,
   },
   roleCard: {
-    padding: 32,
-    borderRadius: 16,
+    padding: 40,
+    borderRadius: 24,
     alignItems: "center",
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.2,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  roleCardStudent: {
+    backgroundColor: COLORS.student,
+  },
+  roleCardMerchant: {
+    backgroundColor: COLORS.merchant,
+  },
+  roleIconContainer: {
+    marginBottom: 16,
   },
   roleTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
+    fontSize: 28,
+    fontWeight: "700",
     color: "#fff",
-    marginTop: 16,
+    marginTop: 12,
+    letterSpacing: -0.5,
   },
   roleDesc: {
-    fontSize: 14,
-    color: "rgba(255,255,255,0.8)",
-    marginTop: 4,
+    fontSize: 15,
+    color: "rgba(255,255,255,0.9)",
+    marginTop: 6,
+    fontWeight: '500',
   },
   form: {
-    gap: 16,
+    gap: 20,
+    marginTop: 8,
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: COLORS.card,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    borderRadius: 18,
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: COLORS.borderLight,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
-  inputIcon: {
-    marginRight: 12,
+  inputIconContainer: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 4,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary + '10',
   },
   input: {
     flex: 1,
     padding: 16,
+    paddingLeft: 12,
     fontSize: 16,
     color: COLORS.text,
+    fontWeight: '500',
   },
   eyeIcon: {
-    padding: 8,
+    padding: 12,
+    marginRight: 4,
+  },
+  categoryLabelContainer: {
+    marginTop: 8,
+    marginBottom: 16,
   },
   categoryLabel: {
-    fontSize: 18,
-    fontWeight: "bold",
+    fontSize: 20,
+    fontWeight: "700",
     color: COLORS.text,
-    marginTop: 8,
     marginBottom: 8,
+    letterSpacing: -0.3,
+  },
+  categoryLabelUnderline: {
+    width: 40,
+    height: 3,
+    backgroundColor: COLORS.merchant,
+    borderRadius: 2,
+    opacity: 0.6,
   },
   categoryGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 12,
-    marginBottom: 8,
+    gap: 14,
+    marginBottom: 16,
   },
   categoryCard: {
     flex: 1,
     minWidth: "45%",
     backgroundColor: COLORS.card,
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 24,
     alignItems: "center",
     borderWidth: 2,
-    borderColor: COLORS.border,
+    borderColor: COLORS.borderLight,
     position: "relative",
-    gap: 12,
+    gap: 14,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.shadow,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   categoryCardSelected: {
     borderColor: COLORS.merchant,
-    backgroundColor: COLORS.merchant + "10",
+    backgroundColor: COLORS.merchant + "12",
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.merchant,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.2,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+  categoryIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: COLORS.borderLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryIconContainerSelected: {
+    backgroundColor: COLORS.merchant + '20',
   },
   categoryName: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "600",
-    color: COLORS.textLight,
+    color: COLORS.textSecondary,
     textAlign: "center",
+    letterSpacing: 0.2,
   },
   categoryNameSelected: {
     color: COLORS.merchant,
-    fontWeight: "bold",
+    fontWeight: "700",
   },
   checkmark: {
     position: "absolute",
-    top: 8,
-    right: 8,
+    top: 10,
+    right: 10,
   },
   selectedInfo: {
     flexDirection: "row",
     alignItems: 'flex-start',
-    backgroundColor: COLORS.primary + "10",
-    padding: 12,
-    borderRadius: 8,
-    gap: 8,
+    backgroundColor: COLORS.primary + "12",
+    padding: 16,
+    borderRadius: 16,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: COLORS.primary + "30",
+    marginBottom: 8,
+  },
+  selectedInfoIconContainer: {
+    marginTop: 2,
+  },
+  selectedInfoTextContainer: {
+    flex: 1,
   },
   selectedInfoText: {
-    flex: 1,
     fontSize: 14,
     color: COLORS.text,
-    lineHeight: 20,
+    lineHeight: 22,
+    fontWeight: '500',
   },
   selectedInfoBold: {
-    fontWeight: "bold",
+    fontWeight: "700",
     color: COLORS.merchant,
   },
   button: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: COLORS.primary,
-    padding: 18,
-    borderRadius: 12,
-    alignItems: "center",
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    borderRadius: 16,
     marginTop: 8,
+    gap: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.35,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
   buttonText: {
     color: "#fff",
     fontSize: 18,
     fontWeight: "700",
+    letterSpacing: 0.5,
   },
   loginLink: {
-    marginTop: 8,
+    marginTop: 12,
     alignItems: "center",
+    paddingVertical: 8,
   },
   link: {
     fontSize: 15,
-    color: COLORS.textLight,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
   },
   linkBold: {
     color: COLORS.primary,
