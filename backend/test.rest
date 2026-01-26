@@ -1,0 +1,455 @@
+### Variables
+@baseURL = http://localhost:5000/api
+@studentToken = stud
+@merchantToken = merc
+@adminToken = adm
+
+### Health Check
+GET http://localhost:5000/api/health
+
+###############################################
+# AUTHENTICATION ENDPOINTS
+###############################################
+
+### Register Student
+POST {{baseURL}}/auth/register/student
+Content-Type: application/json
+
+{
+  "name": "Rahul Kumar",
+  "email": "rahul@student.com",
+  "password": "password123",
+  "phone": "9876543210"
+}
+
+### Register Another Student
+POST {{baseURL}}/auth/register/student
+Content-Type: application/json
+
+{
+  "name": "Priya Sharma",
+  "email": "priya@student.com",
+  "password": "password123",
+  "phone": "9876543211"
+}
+
+### Register Merchant
+POST {{baseURL}}/auth/register/merchant
+Content-Type: application/json
+
+{
+  "shopName": "Campus Canteen",
+  "ownerName": "Suresh Patel",
+  "email": "canteen@merchant.com",
+  "password": "password123",
+  "phone": "9876543220",
+  "category": "canteen"
+}
+
+### Register Another Merchant
+POST {{baseURL}}/auth/register/merchant
+Content-Type: application/json
+
+{
+  "shopName": "College Bookstore",
+  "ownerName": "Ramesh Singh",
+  "email": "bookstore@merchant.com",
+  "password": "password123",
+  "phone": "9876543221",
+  "category": "bookstore"
+}
+
+### Register Admin
+POST {{baseURL}}/auth/register/admin
+Content-Type: application/json
+
+{
+  "name": "Admin User",
+  "email": "admin@vertopay.com",
+  "password": "admin123"
+}
+
+### Login Student
+POST {{baseURL}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "rahul@student.com",
+  "password": "password123",
+  "role": "student"
+}
+
+### Login Merchant
+POST {{baseURL}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "canteen@merchant.com",
+  "password": "password123",
+  "role": "merchant"
+}
+
+### Login Admin
+POST {{baseURL}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@vertopay.com",
+  "password": "admin123",
+  "role": "admin"
+}
+
+### Get Current User (Student)
+GET {{baseURL}}/auth/me
+Authorization: Bearer {{studentToken}}
+
+### Get Current User (Merchant)
+GET {{baseURL}}/auth/me
+Authorization: Bearer {{merchantToken}}
+
+### Get Current User (Admin)
+GET {{baseURL}}/auth/me
+Authorization: Bearer {{adminToken}}
+
+###############################################
+# STUDENT ENDPOINTS
+###############################################
+
+### Get Student Profile
+GET {{baseURL}}/students/profile
+Authorization: Bearer {{studentToken}}
+
+### Get Student Balance
+GET {{baseURL}}/students/balance
+Authorization: Bearer {{studentToken}}
+
+### Get Student Transaction History
+GET {{baseURL}}/students/transactions
+Authorization: Bearer {{studentToken}}
+
+###############################################
+# MERCHANT ENDPOINTS
+###############################################
+
+### Get Merchant Profile
+GET {{baseURL}}/merchants/profile
+Authorization: Bearer {{merchantToken}}
+
+### Get Merchant Balance
+GET {{baseURL}}/merchants/balance
+Authorization: Bearer {{merchantToken}}
+
+### Get Merchant Transaction History
+GET {{baseURL}}/merchants/transactions
+Authorization: Bearer {{merchantToken}}
+
+### Get Today's Sales
+GET {{baseURL}}/merchants/sales/today
+Authorization: Bearer {{merchantToken}}
+
+###############################################
+# TRANSACTION ENDPOINTS
+###############################################
+
+### Generate QR Code (Student)
+POST {{baseURL}}/transactions/generate-qr
+Content-Type: application/json
+Authorization: Bearer {{studentToken}}
+
+{
+  "amount": 50
+}
+
+### Process Payment (Merchant) - Manual QR Data
+POST {{baseURL}}/transactions/process-payment
+Content-Type: application/json
+Authorization: Bearer {{merchantToken}}
+
+{
+  "qrData": {
+    "studentId": "STU123456ABCD",
+    "amount": 50,
+    "nonce": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6",
+    "timestamp": "2026-01-26T07:30:00.000Z",
+    "signature": "BASE64_SIGNATURE_HERE"
+  }
+}
+
+### Example: Complete Payment Flow Test
+# Step 1: Generate QR (copy the response qrData)
+POST {{baseURL}}/transactions/generate-qr
+Content-Type: application/json
+Authorization: Bearer {{studentToken}}
+
+{
+  "amount": 75
+}
+
+# Step 2: Process Payment (paste qrData from step 1)
+POST {{baseURL}}/transactions/process-payment
+Content-Type: application/json
+Authorization: Bearer {{merchantToken}}
+
+{
+  "qrData": {
+    "studentId": "PASTE_FROM_STEP_1",
+    "amount": 75,
+    "nonce": "PASTE_FROM_STEP_1",
+    "timestamp": "PASTE_FROM_STEP_1",
+    "signature": "PASTE_FROM_STEP_1"
+  }
+}
+
+###############################################
+# ADMIN ENDPOINTS
+###############################################
+
+### Get All Students
+GET {{baseURL}}/admin/students
+Authorization: Bearer {{adminToken}}
+
+### Get All Merchants
+GET {{baseURL}}/admin/merchants
+Authorization: Bearer {{adminToken}}
+
+### Get All Transactions
+GET {{baseURL}}/admin/transactions
+Authorization: Bearer {{adminToken}}
+
+### Get Dashboard Stats
+GET {{baseURL}}/admin/stats
+Authorization: Bearer {{adminToken}}
+
+### Top-up Student Balance
+POST {{baseURL}}/admin/topup
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "studentId": "STU123456ABCD",
+  "amount": 500
+}
+
+### Toggle Student Status (Activate/Deactivate)
+PATCH {{baseURL}}/admin/students/STU123456ABCD/toggle
+Authorization: Bearer {{adminToken}}
+
+### Toggle Merchant Status (Activate/Deactivate)
+PATCH {{baseURL}}/admin/merchants/MER123456ABCD/toggle
+Authorization: Bearer {{adminToken}}
+
+###############################################
+# ERROR TEST CASES
+###############################################
+
+### Test: Invalid Login Credentials
+POST {{baseURL}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "wrong@email.com",
+  "password": "wrongpassword",
+  "role": "student"
+}
+
+### Test: Unauthorized Access (No Token)
+GET {{baseURL}}/students/profile
+
+### Test: Invalid Token
+GET {{baseURL}}/students/profile
+Authorization: Bearer invalid_token_here
+
+### Test: Generate QR with Negative Amount
+POST {{baseURL}}/transactions/generate-qr
+Content-Type: application/json
+Authorization: Bearer {{studentToken}}
+
+{
+  "amount": -50
+}
+
+### Test: Generate QR with Zero Amount
+POST {{baseURL}}/transactions/generate-qr
+Content-Type: application/json
+Authorization: Bearer {{studentToken}}
+
+{
+  "amount": 0
+}
+
+### Test: Process Payment with Expired QR (Old Timestamp)
+POST {{baseURL}}/transactions/process-payment
+Content-Type: application/json
+Authorization: Bearer {{merchantToken}}
+
+{
+  "qrData": {
+    "studentId": "STU123456ABCD",
+    "amount": 50,
+    "nonce": "unique_nonce_12345",
+    "timestamp": "2026-01-20T07:30:00.000Z",
+    "signature": "some_signature"
+  }
+}
+
+### Test: Process Payment with Duplicate Nonce (Replay Attack)
+# First, generate and process a valid payment
+# Then, try to use the same QR data again - should fail
+
+### Test: Student Accessing Merchant Endpoint
+GET {{baseURL}}/merchants/profile
+Authorization: Bearer {{studentToken}}
+
+### Test: Merchant Accessing Student Endpoint
+GET {{baseURL}}/students/profile
+Authorization: Bearer {{merchantToken}}
+
+### Test: Non-Admin Accessing Admin Endpoint
+GET {{baseURL}}/admin/students
+Authorization: Bearer {{studentToken}}
+
+### Test: Top-up with Invalid Student ID
+POST {{baseURL}}/admin/topup
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "studentId": "INVALID_ID",
+  "amount": 100
+}
+
+### Test: Top-up with Negative Amount
+POST {{baseURL}}/admin/topup
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "studentId": "STU123456ABCD",
+  "amount": -100
+}
+
+###############################################
+# SECURITY TEST CASES
+###############################################
+
+### Test: QR Signature Verification (Invalid Signature)
+POST {{baseURL}}/transactions/process-payment
+Content-Type: application/json
+Authorization: Bearer {{merchantToken}}
+
+{
+  "qrData": {
+    "studentId": "STU123456ABCD",
+    "amount": 50,
+    "nonce": "test_nonce_security",
+    "timestamp": "2026-01-26T07:30:00.000Z",
+    "signature": "FORGED_SIGNATURE_12345"
+  }
+}
+
+### Test: Insufficient Balance Payment
+# First check student balance, then try to pay more than available
+
+### Test: Payment to Inactive Merchant
+# First deactivate a merchant, then try to pay them
+
+### Test: Payment from Inactive Student
+# First deactivate a student, then try to generate QR
+
+###############################################
+# BULK TESTING SCENARIOS
+###############################################
+
+### Scenario 1: Complete Student Journey
+# 1. Register student
+# 2. Login student (save token)
+# 3. Check balance
+# 4. Generate QR for ₹100
+# 5. Merchant processes payment
+# 6. Check updated balance
+# 7. Check transaction history
+
+### Scenario 2: Complete Merchant Journey
+# 1. Register merchant
+# 2. Login merchant (save token)
+# 3. Accept 5 payments from different students
+# 4. Check today's sales
+# 5. Check transaction history
+# 6. Check total balance
+
+### Scenario 3: Admin Management Flow
+# 1. Login as admin
+# 2. View all students and merchants
+# 3. Top-up 3 students
+# 4. Deactivate 1 student
+# 5. View all transactions
+# 6. Check dashboard stats
+# 7. Reactivate student
+
+###############################################
+# PERFORMANCE TEST
+###############################################
+
+### Generate 10 QR Codes Rapidly (Change amount each time)
+POST {{baseURL}}/transactions/generate-qr
+Content-Type: application/json
+Authorization: Bearer {{studentToken}}
+
+{
+  "amount": 10
+}
+
+###############################################
+# NOTES FOR TESTING
+###############################################
+
+# HOW TO USE THIS FILE:
+# 1. Install "REST Client" extension in VS Code
+# 2. Start your backend server (npm run dev)
+# 3. Run "Register Student" request first
+# 4. Copy the token from response
+# 5. Paste token in @studentToken variable at top
+# 6. Repeat for merchant and admin tokens
+# 7. Run other requests
+
+# TESTING WORKFLOW:
+# Phase 1: Authentication
+#   - Register all user types
+#   - Test login for each role
+#   - Verify token authentication
+
+# Phase 2: Basic Operations
+#   - Get profiles and balances
+#   - View transaction histories
+#   - Test role-based access
+
+# Phase 3: Payment Flow
+#   - Student generates QR
+#   - Copy entire qrData object from response
+#   - Merchant processes with that qrData
+#   - Verify balances updated
+#   - Check transaction created
+
+# Phase 4: Admin Operations
+#   - Manage users
+#   - Top-up balances
+#   - View analytics
+
+# Phase 5: Security Tests
+#   - Test replay attacks (reuse nonce)
+#   - Test expired QR (old timestamp)
+#   - Test forged signatures
+#   - Test role violations
+
+# Phase 6: Error Handling
+#   - Invalid inputs
+#   - Unauthorized access
+#   - Edge cases
+
+# COMMON ERRORS & SOLUTIONS:
+# - "Not authorized, no token" → Add token to Authorization header
+# - "Invalid credentials" → Check email/password/role
+# - "QR code expired" → Generate new QR (timestamp too old)
+# - "QR code already used" → Generate new QR (nonce reused)
+# - "Insufficient balance" → Use admin to top-up student
+# - "Student/Merchant not found" → Check the ID is correct
