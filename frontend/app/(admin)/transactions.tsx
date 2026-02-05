@@ -14,12 +14,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { useAdmin } from '../../hooks/useAdmin';
 import { Transaction } from '../../contexts/WalletContext';
-import { COLORS, MERCHANT_CATEGORIES } from '../../constants/Config';
+import { MERCHANT_CATEGORIES } from '../../constants/Config';
+import { useTheme } from '../../hooks/useTheme';
 
 export default function TransactionsScreen() {
   const { user } = useAuth();
   const { getAllTransactions, reverseTransaction } = useAdmin();
-  
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
@@ -137,10 +139,10 @@ export default function TransactionsScreen() {
   };
 
   const getRiskColor = (score?: number) => {
-    if (!score) return COLORS.success;
-    if (score >= 60) return COLORS.danger;
-    if (score >= 30) return COLORS.warning;
-    return COLORS.success;
+    if (!score) return colors.success;
+    if (score >= 60) return colors.danger;
+    if (score >= 30) return colors.warning;
+    return colors.success;
   };
 
   const renderTransaction = ({ item }: { item: Transaction }) => {
@@ -157,18 +159,18 @@ export default function TransactionsScreen() {
         <View style={styles.txnHeader}>
           <View style={[
             styles.txnIcon,
-            { backgroundColor: item.type === 'reversal' ? COLORS.warning + '20' : 
-                             item.type === 'recharge' ? COLORS.success + '20' : 
-                             COLORS.primary + '20' }
+            { backgroundColor: item.type === 'reversal' ? colors.warning + '20' : 
+                             item.type === 'recharge' ? colors.success + '20' : 
+                             colors.primary + '20' }
           ]}>
             <Ionicons
               name={item.type === 'reversal' ? 'refresh' : 
                     item.type === 'recharge' ? 'add' : 
                     'arrow-forward'}
               size={24}
-              color={item.type === 'reversal' ? COLORS.warning : 
-                     item.type === 'recharge' ? COLORS.success : 
-                     COLORS.primary}
+              color={item.type === 'reversal' ? colors.warning : 
+                     item.type === 'recharge' ? colors.success : 
+                     colors.primary}
             />
           </View>
 
@@ -185,17 +187,17 @@ export default function TransactionsScreen() {
           <View style={styles.txnRight}>
             <Text style={[
               styles.txnAmount,
-              { color: item.type === 'reversal' ? COLORS.warning : COLORS.text }
+              { color: item.type === 'reversal' ? colors.warning : colors.text }
             ]}>
               {item.type === 'reversal' ? '-' : ''}₹{item.amount}
             </Text>
             <View style={[
               styles.statusBadge,
-              { backgroundColor: item.status === 'reversed' ? COLORS.warning + '20' : COLORS.success + '20' }
+              { backgroundColor: item.status === 'reversed' ? colors.warning + '20' : colors.success + '20' }
             ]}>
               <Text style={[
                 styles.statusText,
-                { color: item.status === 'reversed' ? COLORS.warning : COLORS.success }
+                { color: item.status === 'reversed' ? colors.warning : colors.success }
               ]}>
                 {item.status.toUpperCase()}
               </Text>
@@ -250,17 +252,17 @@ export default function TransactionsScreen() {
 
       {/* Search Bar */}
       <View style={styles.searchBar}>
-        <Ionicons name="search" size={20} color={COLORS.textLight} />
+        <Ionicons name="search" size={20} color={colors.textLight} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search by ID, student, merchant..."
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholderTextColor={COLORS.textLight}
+          placeholderTextColor={colors.textLight}
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={20} color={COLORS.textLight} />
+            <Ionicons name="close-circle" size={20} color={colors.textLight} />
           </TouchableOpacity>
         )}
       </View>
@@ -281,7 +283,7 @@ export default function TransactionsScreen() {
           style={[styles.filterChip, filterType === 'payment' && styles.filterChipActive]}
           onPress={() => setFilterType('payment')}
         >
-          <Ionicons name="arrow-forward" size={14} color={filterType === 'payment' ? '#fff' : COLORS.primary} />
+          <Ionicons name="arrow-forward" size={14} color={filterType === 'payment' ? '#fff' : colors.primary} />
           <Text style={[styles.filterText, filterType === 'payment' && styles.filterTextActive]}>
             Payments
           </Text>
@@ -291,7 +293,7 @@ export default function TransactionsScreen() {
           style={[styles.filterChip, filterType === 'recharge' && styles.filterChipActive]}
           onPress={() => setFilterType('recharge')}
         >
-          <Ionicons name="add" size={14} color={filterType === 'recharge' ? '#fff' : COLORS.success} />
+          <Ionicons name="add" size={14} color={filterType === 'recharge' ? '#fff' : colors.success} />
           <Text style={[styles.filterText, filterType === 'recharge' && styles.filterTextActive]}>
             Recharges
           </Text>
@@ -301,7 +303,7 @@ export default function TransactionsScreen() {
           style={[styles.filterChip, filterType === 'reversal' && styles.filterChipActive]}
           onPress={() => setFilterType('reversal')}
         >
-          <Ionicons name="refresh" size={14} color={filterType === 'reversal' ? '#fff' : COLORS.warning} />
+          <Ionicons name="refresh" size={14} color={filterType === 'reversal' ? '#fff' : colors.warning} />
           <Text style={[styles.filterText, filterType === 'reversal' && styles.filterTextActive]}>
             Reversals
           </Text>
@@ -324,7 +326,7 @@ export default function TransactionsScreen() {
           style={[styles.filterChip, filterStatus === 'completed' && styles.filterChipActive]}
           onPress={() => setFilterStatus('completed')}
         >
-          <Ionicons name="checkmark" size={14} color={filterStatus === 'completed' ? '#fff' : COLORS.success} />
+          <Ionicons name="checkmark" size={14} color={filterStatus === 'completed' ? '#fff' : colors.success} />
           <Text style={[styles.filterText, filterStatus === 'completed' && styles.filterTextActive]}>
             Completed
           </Text>
@@ -334,7 +336,7 @@ export default function TransactionsScreen() {
           style={[styles.filterChip, filterStatus === 'reversed' && styles.filterChipActive]}
           onPress={() => setFilterStatus('reversed')}
         >
-          <Ionicons name="close" size={14} color={filterStatus === 'reversed' ? '#fff' : COLORS.danger} />
+          <Ionicons name="close" size={14} color={filterStatus === 'reversed' ? '#fff' : colors.danger} />
           <Text style={[styles.filterText, filterStatus === 'reversed' && styles.filterTextActive]}>
             Reversed
           </Text>
@@ -349,7 +351,7 @@ export default function TransactionsScreen() {
         refreshControl={<RefreshControl refreshing={loading} onRefresh={loadTransactions} />}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="receipt-outline" size={64} color={COLORS.textLight} />
+            <Ionicons name="receipt-outline" size={64} color={colors.textLight} />
             <Text style={styles.emptyText}>No transactions found</Text>
           </View>
         }
@@ -370,7 +372,7 @@ export default function TransactionsScreen() {
                 onPress={() => setDetailsModalVisible(false)}
                 style={styles.closeButton}
               >
-                <Ionicons name="close" size={24} color={COLORS.text} />
+                <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
 
@@ -395,7 +397,7 @@ export default function TransactionsScreen() {
                   <Text style={styles.detailLabel}>Status</Text>
                   <Text style={[
                     styles.detailValue,
-                    { color: selectedTxn.status === 'completed' ? COLORS.success : COLORS.warning }
+                    { color: selectedTxn.status === 'completed' ? colors.success : colors.warning }
                   ]}>
                     {selectedTxn.status.toUpperCase()}
                   </Text>
@@ -471,7 +473,7 @@ export default function TransactionsScreen() {
 
                 {selectedTxn.type === 'reversal' && selectedTxn.reversalReason && (
                   <View style={styles.reversalInfoCard}>
-                    <Ionicons name="information-circle" size={20} color={COLORS.warning} />
+                    <Ionicons name="information-circle" size={20} color={colors.warning} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.reversalLabel}>Reversal Reason</Text>
                       <Text style={styles.reversalText}>{selectedTxn.reversalReason}</Text>
@@ -494,7 +496,7 @@ export default function TransactionsScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Ionicons name="refresh" size={32} color={COLORS.danger} />
+              <Ionicons name="refresh" size={32} color={colors.danger} />
               <Text style={styles.modalTitle}>Reverse Transaction</Text>
             </View>
             <Text style={styles.modalSubtitle}>
@@ -511,7 +513,7 @@ export default function TransactionsScreen() {
               onChangeText={setReversalReason}
               multiline
               numberOfLines={4}
-              placeholderTextColor={COLORS.textLight}
+              placeholderTextColor={colors.textLight}
             />
 
             <View style={styles.modalButtons}>
@@ -540,24 +542,24 @@ export default function TransactionsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
   header: {
     padding: 20,
     paddingTop: 60,
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
   },
   subtitle: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 4,
   },
   statsContainer: {
@@ -567,39 +569,39 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     padding: 12,
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   statNumber: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
   },
   statLabel: {
     fontSize: 11,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 4,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     marginHorizontal: 16,
     marginBottom: 12,
     padding: 12,
     borderRadius: 12,
     gap: 8,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: COLORS.text,
+    color: colors.text,
   },
   filterRow: {
     flexDirection: 'row',
@@ -611,7 +613,7 @@ const styles = StyleSheet.create({
   filterLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.textLight,
+    color: colors.textLight,
   },
   filterChip: {
     flexDirection: 'row',
@@ -619,18 +621,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     gap: 4,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   filterChipActive: {
-    backgroundColor: COLORS.admin,
-    borderColor: COLORS.admin,
+    backgroundColor: colors.admin,
+    borderColor: colors.admin,
   },
   filterText: {
     fontSize: 12,
-    color: COLORS.text,
+    color: colors.text,
     fontWeight: '500',
   },
   filterTextActive: {
@@ -641,12 +643,12 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   txnCard: {
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     padding: 14,
     borderRadius: 16,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   txnHeader: {
     flexDirection: 'row',
@@ -665,16 +667,16 @@ const styles = StyleSheet.create({
   txnMerchant: {
     fontSize: 15,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
   },
   txnStudent: {
     fontSize: 13,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 2,
   },
   txnDate: {
     fontSize: 11,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 2,
   },
   txnRight: {
@@ -683,7 +685,7 @@ const styles = StyleSheet.create({
   txnAmount: {
     fontSize: 17,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
   },
   statusBadge: {
     paddingHorizontal: 8,
@@ -699,7 +701,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    borderTopColor: colors.border,
   },
   riskBadge: {
     flexDirection: 'row',
@@ -716,7 +718,7 @@ const styles = StyleSheet.create({
   },
   riskFlags: {
     fontSize: 10,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 4,
   },
   emptyContainer: {
@@ -726,7 +728,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 18,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 16,
   },
   modalOverlay: {
@@ -736,7 +738,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContent: {
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     borderRadius: 20,
     padding: 24,
     maxHeight: '80%',
@@ -753,20 +755,20 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
   },
   modalSubtitle: {
     fontSize: 16,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginBottom: 12,
   },
   modalWarning: {
     fontSize: 14,
-    color: COLORS.warning,
+    color: colors.warning,
     marginBottom: 20,
   },
   reasonInput: {
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
     padding: 12,
     borderRadius: 12,
     fontSize: 16,
@@ -774,8 +776,8 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    color: COLORS.text,
+    borderColor: colors.border,
+    color: colors.text,
   },
   modalButtons: {
     flexDirection: 'row',
@@ -785,21 +787,21 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     borderRadius: 12,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   modalCancelText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text,
+    color: colors.text,
   },
   modalConfirmBtn: {
     flex: 1,
     padding: 16,
     borderRadius: 12,
-    backgroundColor: COLORS.danger,
+    backgroundColor: colors.danger,
     alignItems: 'center',
   },
   modalConfirmText: {
@@ -812,29 +814,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: colors.border,
   },
   detailLabel: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: colors.textLight,
     fontWeight: '500',
   },
   detailValue: {
     fontSize: 14,
-    color: COLORS.text,
+    color: colors.text,
     fontWeight: '600',
     maxWidth: '60%',
     textAlign: 'right',
   },
   amountBig: {
     fontSize: 20,
-    color: COLORS.primary,
+    color: colors.primary,
   },
   reverseButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.danger,
+    backgroundColor: colors.danger,
     padding: 14,
     borderRadius: 12,
     marginTop: 20,
@@ -847,22 +849,22 @@ const styles = StyleSheet.create({
   },
   reversalInfoCard: {
     flexDirection: 'row',
-    backgroundColor: COLORS.warning + '10',
+    backgroundColor: colors.warning + '10',
     padding: 12,
     borderRadius: 12,
     gap: 12,
     marginTop: 12,
     borderWidth: 1,
-    borderColor: COLORS.warning,
+    borderColor: colors.warning,
   },
   reversalLabel: {
     fontSize: 12,
-    color: COLORS.warning,
+    color: colors.warning,
     fontWeight: '600',
     marginBottom: 4,
   },
   reversalText: {
     fontSize: 13,
-    color: COLORS.text,
+    color: colors.text,
   },
 });

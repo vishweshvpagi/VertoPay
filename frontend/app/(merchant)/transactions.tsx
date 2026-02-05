@@ -10,11 +10,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
-import { COLORS } from '../../constants/Config';
+import { useTheme } from '../../hooks/useTheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function TransactionsScreen() {
   const { user } = useAuth();
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'today' | 'week'>('all');
@@ -74,7 +76,7 @@ export default function TransactionsScreen() {
       activeOpacity={0.7}
     >
       <View style={styles.txnIcon}>
-        <Ionicons name="person" size={24} color={COLORS.success} />
+        <Ionicons name="person" size={24} color={colors.success} />
       </View>
       <View style={styles.txnInfo}>
         <Text style={styles.txnTitle}>{item.student_name}</Text>
@@ -124,7 +126,7 @@ export default function TransactionsScreen() {
           <Ionicons 
             name="today" 
             size={14} 
-            color={filterType === 'today' ? '#fff' : COLORS.primary} 
+            color={filterType === 'today' ? '#fff' : colors.primary} 
           />
           <Text style={[styles.filterText, filterType === 'today' && styles.filterTextActive]}>
             Today
@@ -138,7 +140,7 @@ export default function TransactionsScreen() {
           <Ionicons 
             name="calendar" 
             size={14} 
-            color={filterType === 'week' ? '#fff' : COLORS.success} 
+            color={filterType === 'week' ? '#fff' : colors.success} 
           />
           <Text style={[styles.filterText, filterType === 'week' && styles.filterTextActive]}>
             This Week
@@ -155,7 +157,7 @@ export default function TransactionsScreen() {
         refreshControl={<RefreshControl refreshing={loading} onRefresh={loadTransactions} />}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Ionicons name="receipt-outline" size={64} color={COLORS.textLight} />
+            <Ionicons name="receipt-outline" size={64} color={colors.textLight} />
             <Text style={styles.emptyText}>No transactions found</Text>
             <Text style={styles.emptySubtext}>
               {filterType === 'all' 
@@ -179,14 +181,14 @@ export default function TransactionsScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Transaction Details</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color={COLORS.text} />
+                <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
 
             {selectedTxn && (
               <>
                 <View style={styles.modalIcon}>
-                  <Ionicons name="checkmark-circle" size={40} color={COLORS.success} />
+                  <Ionicons name="checkmark-circle" size={40} color={colors.success} />
                 </View>
 
                 <Text style={styles.modalAmount}>+₹{selectedTxn.amount}</Text>
@@ -230,15 +232,15 @@ export default function TransactionsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
   header: {
     padding: 20,
     paddingTop: 60,
-    backgroundColor: COLORS.merchant,
+    backgroundColor: colors.merchant,
   },
   title: {
     fontSize: 28,
@@ -261,21 +263,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     padding: 10,
     borderRadius: 12,
     gap: 6,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   filterTabActive: {
-    backgroundColor: COLORS.merchant,
-    borderColor: COLORS.merchant,
+    backgroundColor: colors.merchant,
+    borderColor: colors.merchant,
   },
   filterText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.text,
+    color: colors.text,
   },
   filterTextActive: {
     color: '#fff',
@@ -286,18 +288,18 @@ const styles = StyleSheet.create({
   },
   txnCard: {
     flexDirection: 'row',
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     padding: 14,
     borderRadius: 16,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   txnIcon: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: COLORS.success + '20',
+    backgroundColor: colors.success + '20',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -308,17 +310,17 @@ const styles = StyleSheet.create({
   txnTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: 4,
   },
   txnDate: {
     fontSize: 12,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginBottom: 2,
   },
   txnId: {
     fontSize: 10,
-    color: COLORS.textLight,
+    color: colors.textLight,
     fontFamily: 'monospace',
   },
   txnRight: {
@@ -327,11 +329,11 @@ const styles = StyleSheet.create({
   txnAmount: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: COLORS.success,
+    color: colors.success,
     marginBottom: 6,
   },
   statusBadge: {
-    backgroundColor: COLORS.success + '20',
+    backgroundColor: colors.success + '20',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
@@ -339,7 +341,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 10,
     fontWeight: 'bold',
-    color: COLORS.success,
+    color: colors.success,
   },
   emptyState: {
     alignItems: 'center',
@@ -347,13 +349,13 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 18,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 16,
     fontWeight: '600',
   },
   emptySubtext: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 8,
     textAlign: 'center',
   },
@@ -364,7 +366,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContent: {
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     borderRadius: 20,
     padding: 24,
   },
@@ -377,13 +379,13 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
   },
   modalIcon: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: COLORS.success + '20',
+    backgroundColor: colors.success + '20',
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
@@ -392,14 +394,14 @@ const styles = StyleSheet.create({
   modalAmount: {
     fontSize: 36,
     fontWeight: 'bold',
-    color: COLORS.success,
+    color: colors.success,
     textAlign: 'center',
     marginBottom: 24,
   },
   studentCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
     padding: 12,
     borderRadius: 12,
     marginBottom: 20,
@@ -409,18 +411,18 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: COLORS.student,
+    backgroundColor: colors.student,
     alignItems: 'center',
     justifyContent: 'center',
   },
   studentName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
   },
   studentId: {
     fontSize: 12,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 2,
   },
   detailRow: {
@@ -428,22 +430,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: colors.border,
   },
   detailLabel: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: colors.textLight,
     fontWeight: '500',
   },
   detailValue: {
     fontSize: 14,
-    color: COLORS.text,
+    color: colors.text,
     fontWeight: '600',
     maxWidth: '60%',
     textAlign: 'right',
   },
   detailStatusBadge: {
-    backgroundColor: COLORS.success + '20',
+    backgroundColor: colors.success + '20',
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 8,
@@ -451,6 +453,6 @@ const styles = StyleSheet.create({
   detailStatusText: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: COLORS.success,
+    color: colors.success,
   },
 });

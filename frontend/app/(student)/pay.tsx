@@ -11,11 +11,14 @@ import {
 import QRCode from 'react-native-qrcode-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
-import { COLORS, MERCHANT_CATEGORIES } from '../../constants/Config';
+import { useTheme } from '../../hooks/useTheme';
+import { MERCHANT_CATEGORIES } from '../../constants/Config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function PayScreen() {
   const { user } = useAuth();
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const [balance, setBalance] = useState(0);
   const [amount, setAmount] = useState('');
   const [selectedMerchant, setSelectedMerchant] = useState('');
@@ -116,7 +119,7 @@ export default function PayScreen() {
               value={qrData}
               size={260}
               backgroundColor="white"
-              color={COLORS.student}
+              color={colors.student}
             />
           </View>
 
@@ -130,7 +133,7 @@ export default function PayScreen() {
               <Ionicons 
                 name={merchants.find(m => m.id === paymentInfo.merchantId)?.icon as any || 'storefront'} 
                 size={24} 
-                color={COLORS.merchant} 
+                color={colors.merchant} 
               />
             </View>
             <View>
@@ -152,7 +155,7 @@ export default function PayScreen() {
 
         {/* Instructions */}
         <View style={styles.instructionsCard}>
-          <Ionicons name="information-circle" size={32} color={COLORS.primary} />
+          <Ionicons name="information-circle" size={32} color={colors.primary} />
           <View style={styles.instructionsContent}>
             <Text style={styles.instructionsTitle}>Show this QR to Merchant</Text>
             <Text style={styles.instructionsText}>
@@ -178,7 +181,7 @@ export default function PayScreen() {
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Balance After Payment</Text>
-            <Text style={[styles.detailValue, { color: COLORS.success }]}>
+            <Text style={[styles.detailValue, { color: colors.success }]}>
               ₹{(balance - paymentInfo.amount).toFixed(2)}
             </Text>
           </View>
@@ -223,7 +226,7 @@ export default function PayScreen() {
             value={amount}
             onChangeText={setAmount}
             keyboardType="numeric"
-            placeholderTextColor={COLORS.textLight}
+            placeholderTextColor={colors.textLight}
           />
         </View>
 
@@ -271,7 +274,7 @@ export default function PayScreen() {
                 <Ionicons
                   name={merchant.icon as any}
                   size={28}
-                  color={selectedMerchant === merchant.id ? '#fff' : COLORS.primary}
+                  color={selectedMerchant === merchant.id ? '#fff' : colors.primary}
                 />
               </View>
               <Text style={[
@@ -281,7 +284,7 @@ export default function PayScreen() {
                 {merchant.name}
               </Text>
               {selectedMerchant === merchant.id && (
-                <Ionicons name="checkmark-circle" size={20} color={COLORS.student} />
+                <Ionicons name="checkmark-circle" size={20} color={colors.student} />
               )}
             </TouchableOpacity>
           ))}
@@ -307,7 +310,7 @@ export default function PayScreen() {
 
       {/* Info Card */}
       <View style={styles.infoCardBottom}>
-        <Ionicons name="information-circle" size={24} color={COLORS.primary} />
+        <Ionicons name="information-circle" size={24} color={colors.primary} />
         <View style={styles.infoContent}>
           <Text style={styles.infoTitle}>How it works</Text>
           <Text style={styles.infoText}>
@@ -323,15 +326,15 @@ export default function PayScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
   header: {
     padding: 20,
     paddingTop: 60,
-    backgroundColor: COLORS.student,
+    backgroundColor: colors.student,
   },
   title: {
     fontSize: 28,
@@ -361,29 +364,29 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: 16,
   },
   amountInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     borderRadius: 16,
     paddingHorizontal: 20,
     borderWidth: 2,
-    borderColor: COLORS.student,
+    borderColor: colors.student,
   },
   rupeeSymbol: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
     marginRight: 8,
   },
   amountInput: {
     flex: 1,
     fontSize: 32,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
     padding: 20,
   },
   quickAmounts: {
@@ -394,21 +397,21 @@ const styles = StyleSheet.create({
   },
   quickBtn: {
     width: '23%',
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     padding: 14,
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   quickBtnActive: {
-    backgroundColor: COLORS.student,
-    borderColor: COLORS.student,
+    backgroundColor: colors.student,
+    borderColor: colors.student,
   },
   quickBtnText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text,
+    color: colors.text,
   },
   quickBtnTextActive: {
     color: '#fff',
@@ -419,48 +422,48 @@ const styles = StyleSheet.create({
   merchantCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     padding: 16,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   merchantCardActive: {
-    borderColor: COLORS.student,
-    backgroundColor: COLORS.student + '10',
+    borderColor: colors.student,
+    backgroundColor: colors.student + '10',
   },
   merchantIcon: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: COLORS.primary + '20',
+    backgroundColor: colors.primary + '20',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   merchantIconActive: {
-    backgroundColor: COLORS.student,
+    backgroundColor: colors.student,
   },
   merchantName: {
     flex: 1,
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text,
+    color: colors.text,
   },
   merchantNameActive: {
-    color: COLORS.student,
+    color: colors.student,
   },
   generateButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.student,
+    backgroundColor: colors.student,
     padding: 18,
     borderRadius: 12,
     gap: 10,
   },
   generateButtonDisabled: {
-    backgroundColor: COLORS.textLight,
+    backgroundColor: colors.textLight,
   },
   generateButtonText: {
     fontSize: 18,
@@ -469,13 +472,13 @@ const styles = StyleSheet.create({
   },
   infoCardBottom: {
     flexDirection: 'row',
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     margin: 20,
     marginTop: 0,
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   infoContent: {
     flex: 1,
@@ -484,29 +487,29 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: 8,
   },
   infoText: {
     fontSize: 12,
-    color: COLORS.textLight,
+    color: colors.textLight,
     lineHeight: 20,
   },
   qrCard: {
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     margin: 20,
     padding: 24,
     borderRadius: 20,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   qrContainer: {
     backgroundColor: '#fff',
     padding: 20,
     borderRadius: 16,
     marginBottom: 24,
-    shadowColor: COLORS.student,
+    shadowColor: colors.student,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -518,18 +521,18 @@ const styles = StyleSheet.create({
   },
   amountLabel: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginBottom: 4,
   },
   amountValue: {
     fontSize: 42,
     fontWeight: 'bold',
-    color: COLORS.student,
+    color: colors.student,
   },
   merchantInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
     width: '100%',
     padding: 12,
     borderRadius: 12,
@@ -540,23 +543,23 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: COLORS.merchant + '20',
+    backgroundColor: colors.merchant + '20',
     alignItems: 'center',
     justifyContent: 'center',
   },
   merchantLabel: {
     fontSize: 11,
-    color: COLORS.textLight,
+    color: colors.textLight,
   },
   merchantValue: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
   },
   studentInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
     width: '100%',
     padding: 12,
     borderRadius: 12,
@@ -566,28 +569,28 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: COLORS.student,
+    backgroundColor: colors.student,
     alignItems: 'center',
     justifyContent: 'center',
   },
   studentName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
   },
   studentId: {
     fontSize: 12,
-    color: COLORS.textLight,
+    color: colors.textLight,
   },
   instructionsCard: {
     flexDirection: 'row',
-    backgroundColor: COLORS.primary + '15',
+    backgroundColor: colors.primary + '15',
     margin: 20,
     marginTop: 0,
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: colors.primary,
     gap: 12,
   },
   instructionsContent: {
@@ -596,27 +599,27 @@ const styles = StyleSheet.create({
   instructionsTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: 6,
   },
   instructionsText: {
     fontSize: 13,
-    color: COLORS.textLight,
+    color: colors.textLight,
     lineHeight: 20,
   },
   detailsCard: {
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     margin: 20,
     marginTop: 0,
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   detailsTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: 16,
   },
   detailRow: {
@@ -624,16 +627,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: colors.border,
   },
   detailLabel: {
     fontSize: 13,
-    color: COLORS.textLight,
+    color: colors.textLight,
   },
   detailValue: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.text,
+    color: colors.text,
   },
   actions: {
     padding: 20,
@@ -643,7 +646,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.student,
+    backgroundColor: colors.student,
     padding: 16,
     borderRadius: 12,
     gap: 8,

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { Ionicons } from "@expo/vector-icons";
-import { COLORS } from "../../constants/Config";
+import { useTheme } from "../../hooks/useTheme";
 
 interface QRDisplayProps {
   qrData: string;
@@ -21,6 +21,8 @@ export default function QRDisplay({
   onExpire,
   onCancel,
 }: QRDisplayProps) {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const [countdown, setCountdown] = useState(expirySeconds);
 
   useEffect(() => {
@@ -39,9 +41,9 @@ export default function QRDisplay({
   }, [onExpire]);
 
   const getCountdownColor = () => {
-    if (countdown > 30) return COLORS.success;
-    if (countdown > 10) return COLORS.warning;
-    return COLORS.danger;
+    if (countdown > 30) return colors.success;
+    if (countdown > 10) return colors.warning;
+    return colors.danger;
   };
 
   return (
@@ -86,9 +88,9 @@ export default function QRDisplay({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   container: {
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     padding: 24,
     borderRadius: 20,
     alignItems: "center",
@@ -116,18 +118,18 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    color: COLORS.textLight,
+    color: colors.textLight,
     fontWeight: "500",
   },
   value: {
     fontSize: 20,
     fontWeight: "bold",
-    color: COLORS.text,
+    color: colors.text,
   },
   merchantValue: {
     fontSize: 16,
     fontWeight: "600",
-    color: COLORS.text,
+    color: colors.text,
     flex: 1,
     textAlign: "right",
     marginLeft: 8,
@@ -148,7 +150,7 @@ const styles = StyleSheet.create({
   },
   instruction: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: colors.textLight,
     textAlign: "center",
     marginBottom: 16,
   },
@@ -158,7 +160,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   cancelButtonText: {
-    color: COLORS.danger,
+    color: colors.danger,
     fontSize: 16,
     fontWeight: "600",
   },

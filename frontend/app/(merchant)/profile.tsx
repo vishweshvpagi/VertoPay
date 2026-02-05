@@ -10,11 +10,13 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
-import { COLORS } from '../../constants/Config';
+import { useTheme } from '../../hooks/useTheme';
+import Switch from '../../components/ui/Switch';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
+  const { colors, theme, toggleTheme } = useTheme();
   const router = useRouter();
   const [earnings, setEarnings] = useState(0);
   const [transactionCount, setTransactionCount] = useState(0);
@@ -59,131 +61,131 @@ export default function ProfileScreen() {
     }
   };
 
+  const styles = getStyles(colors);
+
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.merchant }]}>
         <Text style={styles.title}>Profile</Text>
       </View>
 
       {/* Profile Card */}
-      <View style={styles.profileCard}>
-        <View style={styles.avatar}>
+      <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.avatar, { backgroundColor: colors.merchant }]}>
           <Ionicons name="storefront" size={48} color="#fff" />
         </View>
-        <Text style={styles.name}>{user?.merchantName}</Text>
-        <Text style={styles.email}>{user?.email}</Text>
-        <View style={styles.merchantIdBadge}>
-          <Ionicons name="card" size={16} color={COLORS.merchant} />
-          <Text style={styles.merchantIdText}>{user?.merchantId}</Text>
+        <Text style={[styles.name, { color: colors.text }]}>{user?.merchantName}</Text>
+        <Text style={[styles.email, { color: colors.textLight }]}>{user?.email}</Text>
+        <View style={[styles.merchantIdBadge, { backgroundColor: colors.merchant + '20' }]}>
+          <Ionicons name="card" size={16} color={colors.merchant} />
+          <Text style={[styles.merchantIdText, { color: colors.merchant }]}>{user?.merchantId}</Text>
         </View>
       </View>
 
       {/* Stats */}
       <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Ionicons name="cash" size={28} color={COLORS.success} />
-          <Text style={styles.statNumber}>₹{earnings.toFixed(0)}</Text>
-          <Text style={styles.statLabel}>Total Earnings</Text>
+        <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Ionicons name="cash" size={28} color={colors.success} />
+          <Text style={[styles.statNumber, { color: colors.text }]}>₹{earnings.toFixed(0)}</Text>
+          <Text style={[styles.statLabel, { color: colors.textLight }]}>Total Earnings</Text>
         </View>
 
-        <View style={styles.statCard}>
-          <Ionicons name="calendar" size={28} color={COLORS.primary} />
-          <Text style={styles.statNumber}>₹{todayEarnings.toFixed(0)}</Text>
-          <Text style={styles.statLabel}>Today</Text>
+        <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Ionicons name="calendar" size={28} color={colors.primary} />
+          <Text style={[styles.statNumber, { color: colors.text }]}>₹{todayEarnings.toFixed(0)}</Text>
+          <Text style={[styles.statLabel, { color: colors.textLight }]}>Today</Text>
         </View>
 
-        <View style={styles.statCard}>
-          <Ionicons name="receipt" size={28} color={COLORS.warning} />
-          <Text style={styles.statNumber}>{transactionCount}</Text>
-          <Text style={styles.statLabel}>Transactions</Text>
+        <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Ionicons name="receipt" size={28} color={colors.warning} />
+          <Text style={[styles.statNumber, { color: colors.text }]}>{transactionCount}</Text>
+          <Text style={[styles.statLabel, { color: colors.textLight }]}>Transactions</Text>
         </View>
       </View>
 
       {/* Menu Options */}
       <View style={styles.section}>
         <TouchableOpacity 
-          style={styles.menuItem}
+          style={[styles.menuItem, { backgroundColor: colors.card, borderColor: colors.border }]}
           onPress={() => router.push('/(merchant)/transactions')}
         >
-          <View style={styles.menuIcon}>
-            <Ionicons name="time" size={24} color={COLORS.primary} />
+          <View style={[styles.menuIcon, { backgroundColor: colors.background }]}>
+            <Ionicons name="time" size={24} color={colors.primary} />
           </View>
-          <Text style={styles.menuText}>Transaction History</Text>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+          <Text style={[styles.menuText, { color: colors.text }]}>Transaction History</Text>
+          <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
         </TouchableOpacity>
 
         <TouchableOpacity 
-          style={styles.menuItem}
+          style={[styles.menuItem, { backgroundColor: colors.card, borderColor: colors.border }]}
           onPress={() => router.push('/(merchant)/scan')}
         >
-          <View style={styles.menuIcon}>
-            <Ionicons name="scan" size={24} color={COLORS.merchant} />
+          <View style={[styles.menuIcon, { backgroundColor: colors.background }]}>
+            <Ionicons name="scan" size={24} color={colors.merchant} />
           </View>
-          <Text style={styles.menuText}>Scan QR Code</Text>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+          <Text style={[styles.menuText, { color: colors.text }]}>Scan QR Code</Text>
+          <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
         </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={styles.menuItem}
-          onPress={() => Alert.alert('Settings', 'Settings coming soon!')}
-        >
-          <View style={styles.menuIcon}>
-            <Ionicons name="settings" size={24} color={COLORS.warning} />
+        <View style={[styles.menuItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.menuIcon, { backgroundColor: colors.background }]}>
+            <Ionicons name={theme === 'dark' ? 'moon' : 'sunny'} size={24} color={colors.warning} />
           </View>
-          <Text style={styles.menuText}>Settings</Text>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
-        </TouchableOpacity>
+          <Text style={[styles.menuText, { color: colors.text }]}>Dark Mode</Text>
+          <Switch value={theme === 'dark'} onValueChange={() => toggleTheme()} />
+        </View>
 
         <TouchableOpacity 
-          style={styles.menuItem}
+          style={[styles.menuItem, { backgroundColor: colors.card, borderColor: colors.border }]}
           onPress={() => Alert.alert('Help & Support', 'Contact support at support@vertopay.com')}
         >
-          <View style={styles.menuIcon}>
-            <Ionicons name="help-circle" size={24} color={COLORS.admin} />
+          <View style={[styles.menuIcon, { backgroundColor: colors.background }]}>
+            <Ionicons name="help-circle" size={24} color={colors.admin} />
           </View>
-          <Text style={styles.menuText}>Help & Support</Text>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+          <Text style={[styles.menuText, { color: colors.text }]}>Help & Support</Text>
+          <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
         </TouchableOpacity>
 
         <TouchableOpacity 
-          style={styles.menuItem}
+          style={[styles.menuItem, { backgroundColor: colors.card, borderColor: colors.border }]}
           onPress={() => Alert.alert('About', 'VertoPay Merchant v1.0.0\n\nCampus Digital Payment System')}
         >
-          <View style={styles.menuIcon}>
-            <Ionicons name="information-circle" size={24} color={COLORS.textLight} />
+          <View style={[styles.menuIcon, { backgroundColor: colors.background }]}>
+            <Ionicons name="information-circle" size={24} color={colors.textLight} />
           </View>
-          <Text style={styles.menuText}>About</Text>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+          <Text style={[styles.menuText, { color: colors.text }]}>About</Text>
+          <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
         </TouchableOpacity>
       </View>
 
       {/* Logout Button */}
       <View style={styles.section}>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Ionicons name="log-out" size={24} color={COLORS.danger} />
-          <Text style={styles.logoutText}>Logout</Text>
+        <TouchableOpacity 
+          style={[styles.logoutButton, { backgroundColor: colors.danger + '15', borderColor: colors.danger }]} 
+          onPress={handleLogout}
+        >
+          <Ionicons name="log-out" size={24} color={colors.danger} />
+          <Text style={[styles.logoutText, { color: colors.danger }]}>Logout</Text>
         </TouchableOpacity>
       </View>
 
       {/* App Info */}
       <View style={styles.footer}>
-        <Text style={styles.footerText}>VertoPay Merchant v1.0.0</Text>
-        <Text style={styles.footerText}>Secure Campus Payment System</Text>
+        <Text style={[styles.footerText, { color: colors.textLight }]}>VertoPay Merchant v1.0.0</Text>
+        <Text style={[styles.footerText, { color: colors.textLight }]}>Secure Campus Payment System</Text>
       </View>
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
   header: {
     padding: 20,
     paddingTop: 60,
-    backgroundColor: COLORS.merchant,
   },
   title: {
     fontSize: 28,
@@ -191,19 +193,16 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   profileCard: {
-    backgroundColor: COLORS.card,
     margin: 20,
     padding: 24,
     borderRadius: 20,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
   },
   avatar: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: COLORS.merchant,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -211,18 +210,15 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: COLORS.text,
     marginBottom: 4,
   },
   email: {
     fontSize: 14,
-    color: COLORS.textLight,
     marginBottom: 12,
   },
   merchantIdBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.merchant + '20',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
@@ -231,7 +227,6 @@ const styles = StyleSheet.create({
   merchantIdText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.merchant,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -240,22 +235,18 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: COLORS.card,
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
   },
   statNumber: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: COLORS.text,
     marginTop: 8,
   },
   statLabel: {
     fontSize: 11,
-    color: COLORS.textLight,
     marginTop: 4,
     textAlign: 'center',
   },
@@ -265,18 +256,15 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.card,
     padding: 16,
     borderRadius: 12,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: COLORS.border,
   },
   menuIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: COLORS.background,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -285,23 +273,19 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '500',
-    color: COLORS.text,
   },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.danger + '15',
     padding: 16,
     borderRadius: 12,
     gap: 10,
     borderWidth: 1,
-    borderColor: COLORS.danger,
   },
   logoutText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: COLORS.danger,
   },
   footer: {
     alignItems: 'center',
@@ -310,7 +294,6 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 12,
-    color: COLORS.textLight,
     marginTop: 4,
   },
 });

@@ -1,4 +1,4 @@
-﻿{
+{
   "expo": {
     "name": "VertoPay",
     "slug": "vertopay",
@@ -12,7 +12,14 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.vertopay.app"
+      "package": "com.vertopay.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#6366F1"
+      },
+      "statusBar": {
+        "backgroundColor": "#6366F1"
+      }
     }
   }
 }
