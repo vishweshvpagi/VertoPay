@@ -11,9 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../hooks/useAuth';
-import { useAdmin } from '../../hooks/useAdmin';
-import { useTheme } from '../../hooks/useTheme';
+import { useAuth, useAdmin, useTheme } from '../../hooks';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');

@@ -7,9 +7,6 @@ const errorHandler = require('./src/middleware/errorHandler');
 // Load environment variables
 dotenv.config();
 
-// Connect to MongoDB
-connectDB();
-
 const app = express();
 
 // Middleware
@@ -34,6 +31,12 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`🚀 VertoPay Backend running on port ${PORT}`);
-});
+// Start server only when run directly (not when required by tests)
+if (require.main === module) {
+  connectDB();
+  app.listen(PORT, () => {
+    console.log(`🚀 VertoPay Backend running on port ${PORT}`);
+  });
+}
+
+module.exports = app;

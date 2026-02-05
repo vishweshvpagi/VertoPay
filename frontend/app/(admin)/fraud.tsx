@@ -10,8 +10,7 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../hooks/useAuth';
-import { useAdmin } from '../../hooks/useAdmin';
+import { useAuth, useAdmin } from '../../hooks';
 import { Transaction } from '../../contexts/WalletContext';
 import { MERCHANT_CATEGORIES } from '../../constants/Config';
 import { useTheme } from '../../hooks/useTheme';

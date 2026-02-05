@@ -106,20 +106,35 @@ const registerAdmin = async (req, res) => {
   }
 };
 
-// Login (works for all user types)
+// Login (works for all user types; role optional – finds user in any collection)
 const login = async (req, res) => {
   try {
     const { email, password, role } = req.body;
 
     let user;
-    if (role === 'student') {
+    let userRole = role;
+
+    if (userRole === 'student') {
       user = await Student.findOne({ email });
-    } else if (role === 'merchant') {
+      userRole = 'student';
+    } else if (userRole === 'merchant') {
       user = await Merchant.findOne({ email });
-    } else if (role === 'admin') {
+      userRole = 'merchant';
+    } else if (userRole === 'admin') {
       user = await Admin.findOne({ email });
+      userRole = 'admin';
     } else {
-      return res.status(400).json({ message: 'Invalid role' });
+      // No role or unknown: try student, then merchant, then admin
+      user = await Student.findOne({ email });
+      userRole = 'student';
+      if (!user) {
+        user = await Merchant.findOne({ email });
+        userRole = 'merchant';
+      }
+      if (!user) {
+        user = await Admin.findOne({ email });
+        userRole = 'admin';
+      }
     }
 
     if (!user) {
@@ -135,7 +150,7 @@ const login = async (req, res) => {
       return res.status(403).json({ message: 'Account is inactive' });
     }
 
-    const token = generateToken(user._id, role);
+    const token = generateToken(user._id, userRole);
 
     res.json({
       message: 'Login successful',

@@ -8,8 +8,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAdmin } from '../../hooks/useAdmin';
-import { useTheme } from '../../hooks/useTheme';
+import { useAdmin, useTheme } from '../../hooks';
 
 export default function AuditScreen() {
   const { getAdminActions } = useAdmin();
