@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
-import { COLORS, MERCHANT_CATEGORIES } from '../../constants/Config';
+import { MERCHANT_CATEGORIES } from '../../constants/Config';
+import { useTheme } from '../../hooks/useTheme';
 
 interface MerchantSelectorProps {
   selectedMerchant: string;
@@ -11,6 +12,8 @@ export default function MerchantSelector({
   selectedMerchant,
   onSelect,
 }: MerchantSelectorProps) {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   return (
     <View style={styles.container}>
       <Text style={styles.label}>Select Merchant</Text>
@@ -43,34 +46,34 @@ export default function MerchantSelector({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   container: {
     marginVertical: 16,
   },
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: 12,
   },
   scrollContent: {
     paddingRight: 20,
   },
   chip: {
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
     marginRight: 8,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   chipSelected: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   chipText: {
-    color: COLORS.text,
+    color: colors.text,
     fontSize: 14,
     fontWeight: '500',
   },

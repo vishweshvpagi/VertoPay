@@ -9,10 +9,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../hooks/useAuth';
-import { COLORS } from '../../constants/Config';
+import { useTheme } from '../../hooks/useTheme';
 
 export default function HistoryScreen() {
   const { user } = useAuth();
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const [transactions, setTransactions] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -41,7 +43,7 @@ export default function HistoryScreen() {
   const renderTransaction = ({ item }: { item: any }) => (
     <View style={styles.transactionCard}>
       <View style={styles.transactionIcon}>
-        <Ionicons name="arrow-down" size={20} color={COLORS.success} />
+        <Ionicons name="arrow-down" size={20} color={colors.success} />
       </View>
       <View style={styles.transactionDetails}>
         <Text style={styles.transactionStudent}>{item.student}</Text>
@@ -62,7 +64,7 @@ export default function HistoryScreen() {
 
       {transactions.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="receipt-outline" size={64} color={COLORS.textLight} />
+          <Ionicons name="receipt-outline" size={64} color={colors.textLight} />
           <Text style={styles.emptyText}>No transactions yet</Text>
           <Text style={styles.emptySubtext}>Your payment history will appear here</Text>
         </View>
@@ -81,20 +83,20 @@ export default function HistoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
   header: {
     padding: 24,
     paddingTop: 60,
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
   },
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
   },
   list: {
     padding: 24,
@@ -103,7 +105,7 @@ const styles = StyleSheet.create({
   transactionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     borderRadius: 16,
     padding: 16,
   },
@@ -111,7 +113,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: COLORS.success + '20',
+    backgroundColor: colors.success + '20',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -122,22 +124,22 @@ const styles = StyleSheet.create({
   transactionStudent: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: 4,
   },
   transactionDescription: {
     fontSize: 13,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginBottom: 4,
   },
   transactionDate: {
     fontSize: 12,
-    color: COLORS.textLight,
+    color: colors.textLight,
   },
   transactionAmount: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: COLORS.success,
+    color: colors.success,
   },
   emptyState: {
     flex: 1,
@@ -148,12 +150,12 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.text,
+    color: colors.text,
     marginTop: 16,
   },
   emptySubtext: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 8,
     textAlign: 'center',
   },

@@ -6,7 +6,8 @@ import {
     TextInputProps,
     View,
 } from "react-native";
-import { COLORS } from "../../constants/Config";
+import { useTheme } from "../../hooks/useTheme";
+import { SPACING, RADIUS, FONT_SIZE } from "../../constants/DesignTokens";
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -21,6 +22,8 @@ export default function Input({
   style,
   ...props
 }: InputProps) {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   return (
     <View style={styles.container}>
       {label && <Text style={styles.label}>{label}</Text>}
@@ -32,7 +35,7 @@ export default function Input({
             ...(icon ? [styles.inputWithIcon] : []),
             ...(style ? [style] : []),
           ]}
-          placeholderTextColor={COLORS.textLight}
+          placeholderTextColor={colors.textLight}
           {...props}
         />
       </View>
@@ -41,43 +44,44 @@ export default function Input({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginBottom: SPACING.md,
   },
   label: {
-    fontSize: 16,
+    fontSize: FONT_SIZE.body,
     fontWeight: "600",
-    color: COLORS.text,
-    marginBottom: 8,
+    color: colors.text,
+    marginBottom: SPACING.xs,
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    backgroundColor: colors.card,
+    borderRadius: RADIUS.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
   },
   inputError: {
-    borderColor: COLORS.danger,
+    borderColor: colors.danger,
   },
   input: {
     flex: 1,
-    padding: 16,
-    fontSize: 16,
-    color: COLORS.text,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    fontSize: FONT_SIZE.bodyLarge,
+    color: colors.text,
   },
   inputWithIcon: {
-    paddingLeft: 8,
+    paddingLeft: SPACING.xs,
   },
   iconContainer: {
-    paddingLeft: 16,
+    paddingLeft: SPACING.md,
   },
   errorText: {
-    color: COLORS.danger,
-    fontSize: 14,
-    marginTop: 4,
-    marginLeft: 4,
+    color: colors.danger,
+    fontSize: FONT_SIZE.caption,
+    marginTop: SPACING.xxs,
+    marginLeft: SPACING.xxs,
   },
 });

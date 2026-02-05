@@ -13,8 +13,11 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { COLORS, MERCHANT_CATEGORIES } from "../../constants/Config";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { MERCHANT_CATEGORIES } from "../../constants/Config";
 import { useAuth } from "../../hooks/useAuth";
+import { useTheme } from "../../hooks/useTheme";
+import Switch from "../../components/ui/Switch";
 
 export default function RegisterScreen() {
   const [role, setRole] = useState<"student" | "merchant" | null>(null);
@@ -27,6 +30,7 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
 
   const { register } = useAuth();
+  const { colors, theme, toggleTheme } = useTheme();
   const router = useRouter();
 
   // Convert MERCHANT_CATEGORIES object to array
@@ -119,305 +123,295 @@ export default function RegisterScreen() {
     }
   };
 
+  const styles = getStyles(colors);
+
   if (!role) {
     return (
-      <KeyboardAvoidingView 
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity 
-            onPress={() => router.back()}
-            style={styles.backButton}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.content}>
-          <View style={styles.titleContainer}>
-            <Text style={styles.title}>Register As</Text>
-            <View style={styles.titleUnderline} />
-          </View>
-          <Text style={styles.subtitle}>Choose your account type</Text>
-
-          <View style={styles.roleButtons}>
-            <TouchableOpacity
-              style={[styles.roleCard, styles.roleCardStudent]}
-              onPress={() => setRole("student")}
-              activeOpacity={0.8}
-            >
-              <View style={styles.roleIconContainer}>
-                <Ionicons name="school" size={52} color="#fff" />
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <SafeAreaView style={styles.safeArea} edges={["top"]}>
+          <KeyboardAvoidingView style={styles.flex1} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+            <View style={styles.header}>
+              <TouchableOpacity
+                onPress={() => router.back()}
+                style={[styles.backButton, { backgroundColor: colors.card, borderColor: colors.borderLight }]}
+                activeOpacity={0.7}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Ionicons name="arrow-back" size={24} color={colors.text} />
+              </TouchableOpacity>
+              <View style={[styles.darkModeRow, { backgroundColor: colors.card, borderColor: colors.borderLight }]}>
+                <Ionicons name={theme === "dark" ? "moon" : "sunny"} size={18} color={colors.textSecondary} />
+                <Text style={[styles.darkModeLabel, { color: colors.textSecondary }]}>Dark</Text>
+                <Switch value={theme === "dark"} onValueChange={() => toggleTheme()} />
               </View>
-              <Text style={styles.roleTitle}>Student</Text>
-              <Text style={styles.roleDesc}>For campus students</Text>
-            </TouchableOpacity>
+            </View>
 
-            <TouchableOpacity
-              style={[styles.roleCard, styles.roleCardMerchant]}
-              onPress={() => setRole("merchant")}
-              activeOpacity={0.8}
-            >
-              <View style={styles.roleIconContainer}>
-                <Ionicons name="storefront" size={52} color="#fff" />
+            <View style={styles.content}>
+              <View style={styles.titleContainer}>
+                <Text style={[styles.title, { color: colors.text }]}>Register As</Text>
+                <View style={[styles.titleUnderline, { backgroundColor: colors.primary }]} />
               </View>
-              <Text style={styles.roleTitle}>Merchant</Text>
-              <Text style={styles.roleDesc}>For campus vendors</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
+              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Choose your account type</Text>
+
+              <View style={styles.roleButtons}>
+                <TouchableOpacity
+                  style={[styles.roleCard, { backgroundColor: colors.student }]}
+                  onPress={() => setRole("student")}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.roleIconContainer}>
+                    <Ionicons name="school" size={52} color="#fff" />
+                  </View>
+                  <Text style={styles.roleTitle}>Student</Text>
+                  <Text style={styles.roleDesc}>For campus students</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.roleCard, { backgroundColor: colors.merchant }]}
+                  onPress={() => setRole("merchant")}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.roleIconContainer}>
+                    <Ionicons name="storefront" size={52} color="#fff" />
+                  </View>
+                  <Text style={styles.roleTitle}>Merchant</Text>
+                  <Text style={styles.roleDesc}>For campus vendors</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-    >
-      <ScrollView 
-        style={styles.container}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.header}>
-          <TouchableOpacity 
-            onPress={() => setRole(null)}
-            style={styles.backButton}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.content}>
-          <View style={styles.titleContainer}>
-            <Text style={styles.title}>
-              {role === "student" ? "Student" : "Merchant"} Registration
-            </Text>
-            <View style={styles.titleUnderline} />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+        <KeyboardAvoidingView
+          style={styles.flex1}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+        >
+          <View style={styles.header}>
+            <TouchableOpacity
+              onPress={() => setRole(null)}
+              style={[styles.backButton, { backgroundColor: colors.card, borderColor: colors.borderLight }]}
+              activeOpacity={0.7}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Ionicons name="arrow-back" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <View style={[styles.darkModeRow, { backgroundColor: colors.card, borderColor: colors.borderLight }]}>
+              <Ionicons name={theme === "dark" ? "moon" : "sunny"} size={18} color={colors.textSecondary} />
+              <Text style={[styles.darkModeLabel, { color: colors.textSecondary }]}>Dark</Text>
+              <Switch value={theme === "dark"} onValueChange={() => toggleTheme()} />
+            </View>
           </View>
 
-        <View style={styles.form}>
-          {role === "merchant" && (
-            <>
-              <View style={styles.categoryLabelContainer}>
-                <Text style={styles.categoryLabel}>
-                  Select Your Business Type
+          <ScrollView
+            style={styles.flex1}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.content}>
+              <View style={styles.titleContainer}>
+                <Text style={[styles.title, { color: colors.text }]}>
+                  {role === "student" ? "Student" : "Merchant"} Registration
                 </Text>
-                <View style={styles.categoryLabelUnderline} />
+                <View style={[styles.titleUnderline, { backgroundColor: colors.primary }]} />
               </View>
-              <View style={styles.categoryGrid}>
-                {categories.map((category) => (
-                  <TouchableOpacity
-                    key={category.id}
-                    style={[
-                      styles.categoryCard,
-                      selectedCategory === category.id &&
-                        styles.categoryCardSelected,
-                    ]}
-                    onPress={() => setSelectedCategory(category.id)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={[
-                      styles.categoryIconContainer,
-                      selectedCategory === category.id && styles.categoryIconContainerSelected
-                    ]}>
-                      <Ionicons
-                        name={category.icon as any}
-                        size={36}
-                        color={
-                          selectedCategory === category.id
-                            ? COLORS.merchant
-                            : COLORS.textSecondary
-                        }
-                      />
+
+              <View style={styles.form}>
+                {role === "merchant" && (
+                  <>
+                    <View style={styles.categoryLabelContainer}>
+                      <Text style={[styles.categoryLabel, { color: colors.text }]}>Select Your Business Type</Text>
+                      <View style={[styles.categoryLabelUnderline, { backgroundColor: colors.merchant }]} />
                     </View>
-                    <Text
-                      style={[
-                        styles.categoryName,
-                        selectedCategory === category.id &&
-                          styles.categoryNameSelected,
-                      ]}
-                    >
-                      {category.name}
-                    </Text>
-                    {selectedCategory === category.id && (
-                      <View style={styles.checkmark}>
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={26}
-                          color={COLORS.merchant}
-                        />
+                    <View style={styles.categoryGrid}>
+                      {categories.map((category) => (
+                        <TouchableOpacity
+                          key={category.id}
+                          style={[
+                            styles.categoryCard,
+                            { backgroundColor: colors.card, borderColor: colors.borderLight },
+                            selectedCategory === category.id && {
+                              borderColor: colors.merchant,
+                              backgroundColor: colors.merchant + "12",
+                            },
+                          ]}
+                          onPress={() => setSelectedCategory(category.id)}
+                          activeOpacity={0.7}
+                        >
+                          <View
+                            style={[
+                              styles.categoryIconContainer,
+                              { backgroundColor: colors.borderLight },
+                              selectedCategory === category.id && { backgroundColor: colors.merchant + "20" },
+                            ]}
+                          >
+                            <Ionicons
+                              name={category.icon as any}
+                              size={36}
+                              color={selectedCategory === category.id ? colors.merchant : colors.textSecondary}
+                            />
+                          </View>
+                          <Text
+                            style={[
+                              styles.categoryName,
+                              { color: colors.textSecondary },
+                              selectedCategory === category.id && { color: colors.merchant, fontWeight: "700" as const },
+                            ]}
+                          >
+                            {category.name}
+                          </Text>
+                          {selectedCategory === category.id && (
+                            <View style={styles.checkmark}>
+                              <Ionicons name="checkmark-circle" size={26} color={colors.merchant} />
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    {selectedCategory && (
+                      <View
+                        style={[
+                          styles.selectedInfo,
+                          { backgroundColor: colors.primary + "12", borderColor: colors.primary + "30" },
+                        ]}
+                      >
+                        <View style={styles.selectedInfoIconContainer}>
+                          <Ionicons name="information-circle" size={22} color={colors.primary} />
+                        </View>
+                        <View style={styles.selectedInfoTextContainer}>
+                          <Text style={[styles.selectedInfoText, { color: colors.text }]}>
+                            Merchant Name:{" "}
+                            <Text style={[styles.selectedInfoBold, { color: colors.merchant }]}>
+                              {MERCHANT_CATEGORIES[selectedCategory]}
+                            </Text>
+                            {"\n"}
+                            Merchant ID: <Text style={[styles.selectedInfoBold, { color: colors.merchant }]}>{selectedCategory}</Text>
+                          </Text>
+                        </View>
                       </View>
                     )}
-                  </TouchableOpacity>
-                ))}
-              </View>
+                  </>
+                )}
 
-              {selectedCategory && (
-                <View style={styles.selectedInfo}>
-                  <View style={styles.selectedInfoIconContainer}>
-                    <Ionicons
-                      name="information-circle"
-                      size={22}
-                      color={COLORS.primary}
+                <View style={[styles.inputContainer, { backgroundColor: colors.card, borderColor: colors.borderLight }]}>
+                  <View style={[styles.inputIconContainer, { backgroundColor: colors.primary + "10" }]}>
+                    <Ionicons name="person-outline" size={22} color={colors.primary} />
+                  </View>
+                  <TextInput
+                    style={[styles.input, { color: colors.text }]}
+                    placeholder="Full Name"
+                    value={name}
+                    onChangeText={setName}
+                    placeholderTextColor={colors.textLight}
+                    autoCorrect={false}
+                    autoComplete="name"
+                    textContentType="name"
+                  />
+                </View>
+
+                <View style={[styles.inputContainer, { backgroundColor: colors.card, borderColor: colors.borderLight }]}>
+                  <View style={[styles.inputIconContainer, { backgroundColor: colors.primary + "10" }]}>
+                    <Ionicons name="mail-outline" size={22} color={colors.primary} />
+                  </View>
+                  <TextInput
+                    style={[styles.input, { color: colors.text }]}
+                    placeholder="Email"
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    placeholderTextColor={colors.textLight}
+                    autoCorrect={false}
+                    autoComplete="email"
+                    textContentType="emailAddress"
+                  />
+                </View>
+
+                <View style={[styles.inputContainer, { backgroundColor: colors.card, borderColor: colors.borderLight }]}>
+                  <View style={[styles.inputIconContainer, { backgroundColor: colors.primary + "10" }]}>
+                    <Ionicons name="lock-closed-outline" size={22} color={colors.primary} />
+                  </View>
+                  <TextInput
+                    style={[styles.input, { color: colors.text }]}
+                    placeholder="Password (min. 6 characters)"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    placeholderTextColor={colors.textLight}
+                    autoCorrect={false}
+                    autoComplete="password-new"
+                    textContentType="newPassword"
+                  />
+                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon} activeOpacity={0.7}>
+                    <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={22} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+
+                {role === "student" && (
+                  <View style={[styles.inputContainer, { backgroundColor: colors.card, borderColor: colors.borderLight }]}>
+                    <View style={[styles.inputIconContainer, { backgroundColor: colors.primary + "10" }]}>
+                      <Ionicons name="card-outline" size={22} color={colors.primary} />
+                    </View>
+                    <TextInput
+                      style={[styles.input, { color: colors.text }]}
+                      placeholder="Student ID (e.g., STU001)"
+                      value={studentId}
+                      onChangeText={setStudentId}
+                      placeholderTextColor={colors.textLight}
+                      autoCorrect={false}
+                      autoCapitalize="characters"
                     />
                   </View>
-                  <View style={styles.selectedInfoTextContainer}>
-                    <Text style={styles.selectedInfoText}>
-                      Merchant Name:{" "}
-                      <Text style={styles.selectedInfoBold}>
-                        {MERCHANT_CATEGORIES[selectedCategory]}
-                      </Text>
-                      {'\n'}
-                      Merchant ID:{" "}
-                      <Text style={styles.selectedInfoBold}>
-                        {selectedCategory}
-                      </Text>
-                    </Text>
-                  </View>
-                </View>
-              )}
-            </>
-          )}
+                )}
 
-          <View style={styles.inputContainer}>
-            <View style={styles.inputIconContainer}>
-              <Ionicons
-                name="person-outline"
-                size={22}
-                color={COLORS.primary}
-              />
-            </View>
-            <TextInput
-              style={styles.input}
-              placeholder="Full Name"
-              value={name}
-              onChangeText={setName}
-              placeholderTextColor={COLORS.textLight}
-              autoCorrect={false}
-              autoComplete="name"
-              textContentType="name"
-            />
-          </View>
+                <TouchableOpacity
+                  style={[styles.button, { backgroundColor: colors.primary }, loading && styles.buttonDisabled]}
+                  onPress={handleRegister}
+                  disabled={loading}
+                  activeOpacity={0.8}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <>
+                      <Text style={styles.buttonText}>Register</Text>
+                      <Ionicons name="arrow-forward" size={20} color="#fff" />
+                    </>
+                  )}
+                </TouchableOpacity>
 
-          <View style={styles.inputContainer}>
-            <View style={styles.inputIconContainer}>
-              <Ionicons
-                name="mail-outline"
-                size={22}
-                color={COLORS.primary}
-              />
-            </View>
-            <TextInput
-              style={styles.input}
-              placeholder="Email"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              placeholderTextColor={COLORS.textLight}
-              autoCorrect={false}
-              autoComplete="email"
-              textContentType="emailAddress"
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <View style={styles.inputIconContainer}>
-              <Ionicons
-                name="lock-closed-outline"
-                size={22}
-                color={COLORS.primary}
-              />
-            </View>
-            <TextInput
-              style={styles.input}
-              placeholder="Password (min. 6 characters)"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              placeholderTextColor={COLORS.textLight}
-              autoCorrect={false}
-              autoComplete="password-new"
-              textContentType="newPassword"
-            />
-            <TouchableOpacity
-              onPress={() => setShowPassword(!showPassword)}
-              style={styles.eyeIcon}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={showPassword ? "eye-off-outline" : "eye-outline"}
-                size={22}
-                color={COLORS.textSecondary}
-              />
-            </TouchableOpacity>
-          </View>
-
-          {role === "student" && (
-            <View style={styles.inputContainer}>
-              <View style={styles.inputIconContainer}>
-                <Ionicons
-                  name="card-outline"
-                  size={22}
-                  color={COLORS.primary}
-                />
+                <TouchableOpacity onPress={() => router.back()} style={styles.loginLink} activeOpacity={0.7}>
+                  <Text style={[styles.link, { color: colors.textSecondary }]}>
+                    Already have an account? <Text style={[styles.linkBold, { color: colors.primary }]}>Login</Text>
+                  </Text>
+                </TouchableOpacity>
               </View>
-              <TextInput
-                style={styles.input}
-                placeholder="Student ID (e.g., STU001)"
-                value={studentId}
-                onChangeText={setStudentId}
-                placeholderTextColor={COLORS.textLight}
-                autoCorrect={false}
-                autoCapitalize="characters"
-              />
             </View>
-          )}
-
-          <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleRegister}
-            disabled={loading}
-            activeOpacity={0.8}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <>
-                <Text style={styles.buttonText}>Register</Text>
-                <Ionicons name="arrow-forward" size={20} color="#fff" />
-              </>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.loginLink}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.link}>
-              Already have an account?{" "}
-              <Text style={styles.linkBold}>Login</Text>
-            </Text>
-          </TouchableOpacity>
-          </View>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
+  },
+  safeArea: {
+    flex: 1,
+  },
+  flex1: {
+    flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
@@ -425,18 +419,36 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 20,
-    paddingTop: Platform.OS === 'ios' ? 60 : 50,
+    paddingTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  darkModeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 18,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  darkModeLabel: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.card,
+    borderWidth: 1,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadow,
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 4,
@@ -456,20 +468,17 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 36,
     fontWeight: "700",
-    color: COLORS.text,
     marginBottom: 8,
     letterSpacing: -0.5,
   },
   titleUnderline: {
     width: 50,
     height: 4,
-    backgroundColor: COLORS.primary,
     borderRadius: 2,
     opacity: 0.7,
   },
   subtitle: {
     fontSize: 16,
-    color: COLORS.textSecondary,
     marginBottom: 32,
     fontWeight: '500',
   },
@@ -491,12 +500,6 @@ const styles = StyleSheet.create({
         elevation: 8,
       },
     }),
-  },
-  roleCardStudent: {
-    backgroundColor: COLORS.student,
-  },
-  roleCardMerchant: {
-    backgroundColor: COLORS.merchant,
   },
   roleIconContainer: {
     marginBottom: 16,
@@ -521,14 +524,12 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.card,
     borderRadius: 18,
     paddingHorizontal: 4,
     borderWidth: 1.5,
-    borderColor: COLORS.borderLight,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadow,
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.08,
         shadowRadius: 8,
@@ -545,14 +546,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginLeft: 4,
     borderRadius: 12,
-    backgroundColor: COLORS.primary + '10',
   },
   input: {
     flex: 1,
     padding: 16,
     paddingLeft: 12,
     fontSize: 16,
-    color: COLORS.text,
     fontWeight: '500',
   },
   eyeIcon: {
@@ -566,14 +565,12 @@ const styles = StyleSheet.create({
   categoryLabel: {
     fontSize: 20,
     fontWeight: "700",
-    color: COLORS.text,
     marginBottom: 8,
     letterSpacing: -0.3,
   },
   categoryLabelUnderline: {
     width: 40,
     height: 3,
-    backgroundColor: COLORS.merchant,
     borderRadius: 2,
     opacity: 0.6,
   },
@@ -586,17 +583,15 @@ const styles = StyleSheet.create({
   categoryCard: {
     flex: 1,
     minWidth: "45%",
-    backgroundColor: COLORS.card,
     borderRadius: 20,
     padding: 24,
     alignItems: "center",
     borderWidth: 2,
-    borderColor: COLORS.borderLight,
     position: "relative",
     gap: 14,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadow,
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
         shadowRadius: 8,
@@ -607,11 +602,9 @@ const styles = StyleSheet.create({
     }),
   },
   categoryCardSelected: {
-    borderColor: COLORS.merchant,
-    backgroundColor: COLORS.merchant + "12",
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.merchant,
+        shadowColor: colors.merchant,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.2,
         shadowRadius: 12,
@@ -625,23 +618,14 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: COLORS.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  categoryIconContainerSelected: {
-    backgroundColor: COLORS.merchant + '20',
   },
   categoryName: {
     fontSize: 15,
     fontWeight: "600",
-    color: COLORS.textSecondary,
     textAlign: "center",
     letterSpacing: 0.2,
-  },
-  categoryNameSelected: {
-    color: COLORS.merchant,
-    fontWeight: "700",
   },
   checkmark: {
     position: "absolute",
@@ -651,12 +635,10 @@ const styles = StyleSheet.create({
   selectedInfo: {
     flexDirection: "row",
     alignItems: 'flex-start',
-    backgroundColor: COLORS.primary + "12",
     padding: 16,
     borderRadius: 16,
     gap: 12,
     borderWidth: 1,
-    borderColor: COLORS.primary + "30",
     marginBottom: 8,
   },
   selectedInfoIconContainer: {
@@ -667,27 +649,25 @@ const styles = StyleSheet.create({
   },
   selectedInfoText: {
     fontSize: 14,
-    color: COLORS.text,
     lineHeight: 22,
     fontWeight: '500',
   },
   selectedInfoBold: {
     fontWeight: "700",
-    color: COLORS.merchant,
   },
   button: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.primary,
     paddingVertical: 18,
     paddingHorizontal: 24,
     borderRadius: 16,
     marginTop: 8,
     gap: 10,
+    minHeight: 52,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.primary,
+        shadowColor: colors.primary,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.35,
         shadowRadius: 12,
@@ -709,15 +689,15 @@ const styles = StyleSheet.create({
   loginLink: {
     marginTop: 12,
     alignItems: "center",
-    paddingVertical: 8,
+    paddingVertical: 12,
+    minHeight: 44,
+    justifyContent: "center",
   },
   link: {
     fontSize: 15,
-    color: COLORS.textSecondary,
     fontWeight: '500',
   },
   linkBold: {
-    color: COLORS.primary,
     fontWeight: "700",
   },
 });

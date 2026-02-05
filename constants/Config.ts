@@ -1,8 +1,9 @@
+// Light theme colors
 export const COLORS = {
-  // Premium color palette
-  primary: "#6366F1", // Indigo - more premium
-  primaryDark: "#4F46E5",
-  primaryLight: "#818CF8",
+  // Premium color palette (softer blue contrast)
+  primary: "#7C7FEB", // Softer indigo
+  primaryDark: "#6B63C7",
+  primaryLight: "#9CA0F5",
   secondary: "#10B981", // Emerald green
   danger: "#EF4444",
   warning: "#F59E0B",
@@ -17,15 +18,46 @@ export const COLORS = {
   borderLight: "#F1F5F9",
   success: "#10B981",
   merchant: "#F43F5E", // Rose
-  student: "#06B6D4", // Cyan - more vibrant
-  studentGradient: ["#06B6D4", "#0891B2"], // Gradient colors
+  student: "#2BA3BD", // Softer cyan (reduced contrast)
+  studentGradient: ["#2BA3BD", "#0E9BB8"], // Softer gradient
   admin: "#8B5CF6", // Purple
   // Premium gradients (for simulation)
-  gradientStart: "#06B6D4",
-  gradientEnd: "#0891B2",
+  gradientStart: "#2BA3BD",
+  gradientEnd: "#0E9BB8",
   // Shadows
   shadow: "rgba(0, 0, 0, 0.08)",
   shadowDark: "rgba(0, 0, 0, 0.12)",
+};
+
+// Dark theme colors
+export const DARK_COLORS = {
+  // Premium color palette (softer blue contrast)
+  primary: "#9CA0F5", // Softer indigo for dark mode
+  primaryDark: "#7C7FEB",
+  primaryLight: "#B8BBF7",
+  secondary: "#34D399", // Lighter emerald
+  danger: "#F87171", // Softer red
+  warning: "#FBBF24", // Lighter amber
+  background: "#0F172A", // Dark slate
+  backgroundDark: "#020617", // Even darker
+  card: "#1E293B", // Dark card
+  cardElevated: "#334155", // Elevated dark card
+  text: "#F1F5F9", // Light text
+  textSecondary: "#CBD5E1",
+  textLight: "#94A3B8",
+  border: "#334155", // Dark borders
+  borderLight: "#475569",
+  success: "#34D399",
+  merchant: "#FB7185", // Lighter rose
+  student: "#4DB8D0", // Softer cyan (reduced contrast)
+  studentGradient: ["#4DB8D0", "#2BA3BD"], // Softer gradient
+  admin: "#A78BFA", // Lighter purple
+  // Premium gradients (for simulation)
+  gradientStart: "#4DB8D0",
+  gradientEnd: "#2BA3BD",
+  // Shadows
+  shadow: "rgba(0, 0, 0, 0.3)",
+  shadowDark: "rgba(0, 0, 0, 0.5)",
 };
 
 export const MERCHANT_CATEGORIES: Record<string, string> = {

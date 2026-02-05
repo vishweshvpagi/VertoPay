@@ -3,23 +3,27 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-  Dimensions,
-  Modal,
-  Platform,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    Dimensions,
+    Modal,
+    Platform,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from "react-native";
-import { COLORS, MERCHANT_CATEGORIES } from "../../constants/Config";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { MERCHANT_CATEGORIES } from "../../constants/Config";
 import { useAuth } from "../../hooks/useAuth";
+import { useTheme } from "../../hooks/useTheme";
 
 const { width } = Dimensions.get("window");
 
 export default function StudentHomeScreen() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [balance, setBalance] = useState(0);
@@ -116,18 +120,21 @@ export default function StudentHomeScreen() {
   };
 
   const recentTransactions = transactions.slice(0, 5);
+  const styles = getStyles(colors as unknown as Record<string, string>);
 
   return (
     <>
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.background }]}
+      contentContainerStyle={styles.scrollContent}
       refreshControl={
         <RefreshControl refreshing={loading} onRefresh={loadData} />
       }
+      showsVerticalScrollIndicator={false}
     >
       {/* Premium Header with Gradient Effect */}
       <View style={styles.header}>
-        <View style={styles.headerGradient}>
+        <View style={[styles.headerGradient, { paddingTop: insets.top + 24 }]}>
           <View style={styles.headerContent}>
             <View style={styles.headerTextContainer}>
               <Text style={styles.greeting}>Welcome back! 👋</Text>
@@ -205,16 +212,6 @@ export default function StudentHomeScreen() {
                 </View>
                 <Text style={styles.rechargeBtnText}>Recharge</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.scanBtn}
-                onPress={() => router.push("/(student)/pay")}
-                activeOpacity={0.8}
-              >
-                <View style={styles.btnIconContainer}>
-                  <Ionicons name="qr-code" size={20} color={COLORS.student} />
-                </View>
-                <Text style={styles.scanBtnText}>Scan & Pay</Text>
-              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -238,7 +235,7 @@ export default function StudentHomeScreen() {
                 styles.actionIconPrimary,
               ]}
             >
-              <Ionicons name="restaurant" size={22} color={COLORS.primary} />
+              <Ionicons name="restaurant" size={22} color={colors.primary} />
             </View>
             <Text style={styles.actionText}>Canteen</Text>
           </TouchableOpacity>
@@ -254,7 +251,7 @@ export default function StudentHomeScreen() {
                 styles.actionIconSuccess,
               ]}
             >
-              <Ionicons name="book" size={22} color={COLORS.success} />
+              <Ionicons name="book" size={22} color={colors.success} />
             </View>
             <Text style={styles.actionText}>Library</Text>
           </TouchableOpacity>
@@ -286,7 +283,7 @@ export default function StudentHomeScreen() {
                 styles.actionIconWarning,
               ]}
             >
-              <Ionicons name="print" size={22} color={COLORS.warning} />
+              <Ionicons name="print" size={22} color={colors.warning} />
             </View>
             <Text style={styles.actionText}>Print</Text>
           </TouchableOpacity>
@@ -302,7 +299,7 @@ export default function StudentHomeScreen() {
                 styles.actionIconPrimary,
               ]}
             >
-              <Ionicons name="shirt" size={22} color={COLORS.primary} />
+              <Ionicons name="shirt" size={22} color={colors.primary} />
             </View>
             <Text style={styles.actionText}>Laundry</Text>
           </TouchableOpacity>
@@ -318,7 +315,7 @@ export default function StudentHomeScreen() {
                 styles.actionIconWarning,
               ]}
             >
-              <Ionicons name="film" size={22} color={COLORS.warning} />
+              <Ionicons name="film" size={22} color={colors.warning} />
             </View>
             <Text style={styles.actionText}>Events</Text>
           </TouchableOpacity>
@@ -334,7 +331,7 @@ export default function StudentHomeScreen() {
                 styles.actionIconDanger,
               ]}
             >
-              <Ionicons name="ellipsis-horizontal" size={22} color={COLORS.danger} />
+              <Ionicons name="ellipsis-horizontal" size={22} color={colors.danger} />
             </View>
             <Text style={styles.actionText}>More</Text>
           </TouchableOpacity>
@@ -350,7 +347,7 @@ export default function StudentHomeScreen() {
         <View style={styles.statsGrid}>
           <View style={styles.statCard}>
             <View style={[styles.statIconContainer, styles.statIconSuccess]}>
-              <Ionicons name="trending-up" size={20} color={COLORS.success} />
+              <Ionicons name="trending-up" size={20} color={colors.success} />
             </View>
             <Text style={styles.statNumber}>
               {transactions.filter((t) => t.type === "recharge").length}
@@ -359,7 +356,7 @@ export default function StudentHomeScreen() {
           </View>
           <View style={styles.statCard}>
             <View style={[styles.statIconContainer, styles.statIconPrimary]}>
-              <Ionicons name="cart" size={20} color={COLORS.primary} />
+              <Ionicons name="cart" size={20} color={colors.primary} />
             </View>
             <Text style={styles.statNumber}>
               {transactions.filter((t) => t.type === "payment").length}
@@ -368,7 +365,7 @@ export default function StudentHomeScreen() {
           </View>
           <View style={styles.statCard}>
             <View style={[styles.statIconContainer, styles.statIconWarning]}>
-              <Ionicons name="cash" size={20} color={COLORS.warning} />
+              <Ionicons name="cash" size={20} color={colors.warning} />
             </View>
             <Text style={styles.statNumber}>
               ₹{transactions
@@ -394,7 +391,7 @@ export default function StudentHomeScreen() {
           >
             <View style={styles.viewAllContainer}>
               <Text style={styles.viewAllText}>View All</Text>
-              <Ionicons name="chevron-forward" size={16} color={COLORS.student} />
+              <Ionicons name="chevron-forward" size={16} color={colors.student} />
             </View>
           </TouchableOpacity>
         </View>
@@ -416,7 +413,7 @@ export default function StudentHomeScreen() {
                   name={txn.type === "payment" ? "arrow-up" : "arrow-down"}
                   size={18}
                   color={
-                    txn.type === "payment" ? COLORS.danger : COLORS.success
+                    txn.type === "payment" ? colors.danger : colors.success
                   }
                 />
               </View>
@@ -440,7 +437,7 @@ export default function StudentHomeScreen() {
                     styles.txnAmount,
                     {
                       color:
-                        txn.type === "payment" ? COLORS.danger : COLORS.success,
+                        txn.type === "payment" ? colors.danger : colors.success,
                     },
                   ]}
                 >
@@ -451,18 +448,21 @@ export default function StudentHomeScreen() {
           ))
         ) : (
           <View style={styles.emptyState}>
-            <Ionicons
-              name="receipt-outline"
-              size={64}
-              color={COLORS.textLight}
-            />
+            <View style={styles.emptyIconWrap}>
+              <Ionicons
+                name="receipt-outline"
+                size={48}
+                color={colors.student}
+              />
+            </View>
             <Text style={styles.emptyText}>No transactions yet</Text>
             <Text style={styles.emptySubtext}>
-              Start by recharging your wallet
+              Start by recharging your wallet or scan to pay at campus outlets
             </Text>
             <TouchableOpacity
               style={styles.emptyButton}
               onPress={() => router.push("/(student)/wallet")}
+              activeOpacity={0.85}
             >
               <Text style={styles.emptyButtonText}>Recharge Now</Text>
             </TouchableOpacity>
@@ -481,13 +481,13 @@ export default function StudentHomeScreen() {
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
-            <Ionicons name="notifications" size={28} color={COLORS.student} />
+            <Ionicons name="notifications" size={28} color={colors.student} />
             <Text style={styles.modalTitle}>Notifications</Text>
             <TouchableOpacity
               onPress={() => setNotificationModalVisible(false)}
               style={styles.modalCloseBtn}
             >
-              <Ionicons name="close" size={24} color={COLORS.text} />
+              <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
           <View style={styles.modalBody}>
@@ -506,23 +506,23 @@ export default function StudentHomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles(colors: Record<string, string>) {
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
   header: {
     paddingBottom: 0,
     overflow: "hidden",
   },
   headerGradient: {
-    backgroundColor: COLORS.student,
-    paddingTop: Platform.OS === "ios" ? 60 : 50,
+    backgroundColor: colors.student,
     paddingBottom: 30,
     paddingHorizontal: 20,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadowDark,
+        shadowColor: colors.shadowDark,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.15,
         shadowRadius: 12,
@@ -600,7 +600,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadowDark,
+        shadowColor: colors.shadowDark,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.2,
         shadowRadius: 16,
@@ -616,7 +616,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: COLORS.student,
+    backgroundColor: colors.student,
     opacity: 0.95,
   },
   balanceCardContent: {
@@ -688,24 +688,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     letterSpacing: 0.3,
   },
-  scanBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#fff",
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: "rgba(255,255,255,0.3)",
-  },
-  scanBtnText: {
-    color: COLORS.student,
-    fontSize: 15,
-    fontWeight: "600",
-    letterSpacing: 0.3,
-  },
   section: {
     paddingHorizontal: 20,
     paddingTop: 24,
@@ -723,14 +705,14 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 22,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
     letterSpacing: -0.3,
     marginBottom: 6,
   },
   sectionTitleUnderline: {
     width: 40,
     height: 3,
-    backgroundColor: COLORS.student,
+    backgroundColor: colors.student,
     borderRadius: 2,
     opacity: 0.6,
   },
@@ -741,7 +723,7 @@ const styles = StyleSheet.create({
   },
   viewAllText: {
     fontSize: 14,
-    color: COLORS.student,
+    color: colors.student,
     fontWeight: "600",
     letterSpacing: 0.2,
   },
@@ -753,16 +735,16 @@ const styles = StyleSheet.create({
   },
   actionCard: {
     width: (width - 64) / 4,
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     padding: 16,
     borderRadius: 18,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: COLORS.borderLight,
+    borderColor: colors.borderLight,
     marginBottom: 12,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadow,
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.08,
         shadowRadius: 8,
@@ -781,24 +763,24 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   actionIconPrimary: {
-    backgroundColor: COLORS.primary + "15",
+    backgroundColor: colors.primary + "15",
   },
   actionIconSuccess: {
-    backgroundColor: COLORS.success + "15",
+    backgroundColor: colors.success + "15",
   },
   actionIconMedical: {
     backgroundColor: "#EC489915",
   },
   actionIconWarning: {
-    backgroundColor: COLORS.warning + "15",
+    backgroundColor: colors.warning + "15",
   },
   actionIconDanger: {
-    backgroundColor: COLORS.danger + "15",
+    backgroundColor: colors.danger + "15",
   },
   actionText: {
     fontSize: 12,
     fontWeight: "600",
-    color: COLORS.text,
+    color: colors.text,
     textAlign: "center",
     letterSpacing: 0.2,
   },
@@ -808,15 +790,15 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     padding: 20,
     borderRadius: 20,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: COLORS.borderLight,
+    borderColor: colors.borderLight,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadow,
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
         shadowRadius: 12,
@@ -835,40 +817,40 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   statIconSuccess: {
-    backgroundColor: COLORS.success + "15",
+    backgroundColor: colors.success + "15",
   },
   statIconPrimary: {
-    backgroundColor: COLORS.primary + "15",
+    backgroundColor: colors.primary + "15",
   },
   statIconWarning: {
-    backgroundColor: COLORS.warning + "15",
+    backgroundColor: colors.warning + "15",
   },
   statNumber: {
     fontSize: 22,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
     marginTop: 4,
     letterSpacing: -0.5,
   },
   statLabel: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     marginTop: 6,
     fontWeight: "500",
     letterSpacing: 0.2,
   },
   txnCard: {
     flexDirection: "row",
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     padding: 16,
     borderRadius: 18,
     marginBottom: 12,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: COLORS.borderLight,
+    borderColor: colors.borderLight,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadow,
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.06,
         shadowRadius: 8,
@@ -887,10 +869,10 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   txnIconPayment: {
-    backgroundColor: COLORS.danger + "15",
+    backgroundColor: colors.danger + "15",
   },
   txnIconRecharge: {
-    backgroundColor: COLORS.success + "15",
+    backgroundColor: colors.success + "15",
   },
   txnInfo: {
     flex: 1,
@@ -898,13 +880,13 @@ const styles = StyleSheet.create({
   txnTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: 4,
     letterSpacing: -0.2,
   },
   txnDate: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     fontWeight: "500",
   },
   txnAmountContainer: {
@@ -918,14 +900,14 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: "center",
     padding: 48,
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: COLORS.borderLight,
+    borderColor: colors.borderLight,
     marginTop: 8,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadow,
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.08,
         shadowRadius: 12,
@@ -937,27 +919,27 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 20,
-    color: COLORS.text,
+    color: colors.text,
     marginTop: 20,
     fontWeight: "600",
     letterSpacing: -0.3,
   },
   emptySubtext: {
     fontSize: 15,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     marginTop: 8,
     textAlign: "center",
     fontWeight: "500",
   },
   emptyButton: {
-    backgroundColor: COLORS.student,
+    backgroundColor: colors.student,
     paddingHorizontal: 32,
     paddingVertical: 16,
     borderRadius: 16,
     marginTop: 24,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.student,
+        shadowColor: colors.student,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -973,22 +955,33 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     letterSpacing: 0.3,
   },
+  scrollContent: {
+    paddingBottom: 100,
+  },
+  emptyIconWrap: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: colors.student + "18",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
   },
   modalContent: {
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     borderRadius: 24,
     width: "100%",
     maxWidth: 400,
     padding: 24,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadowDark,
+        shadowColor: colors.shadowDark,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.3,
         shadowRadius: 16,
@@ -1007,7 +1000,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 22,
     fontWeight: "700",
-    color: COLORS.text,
+    color: colors.text,
     flex: 1,
   },
   modalCloseBtn: {
@@ -1018,11 +1011,11 @@ const styles = StyleSheet.create({
   },
   modalMessage: {
     fontSize: 16,
-    color: COLORS.text,
+    color: colors.text,
     lineHeight: 24,
   },
   modalButton: {
-    backgroundColor: COLORS.student,
+    backgroundColor: colors.student,
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 12,
@@ -1033,4 +1026,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-});
+  });
+}

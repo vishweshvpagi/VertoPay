@@ -11,11 +11,16 @@ import {
 import { CameraView, Camera } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
-import { COLORS, MERCHANT_CATEGORIES } from '../../constants/Config';
+import { useTheme } from '../../hooks/useTheme';
+import { useToast } from '../../contexts/ToastContext';
+import { MERCHANT_CATEGORIES } from '../../constants/Config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ScanScreen() {
   const { user } = useAuth();
+  const { colors } = useTheme();
+  const toast = useToast();
+  const styles = getStyles(colors);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const [paymentData, setPaymentData] = useState<any>(null);
@@ -38,23 +43,19 @@ const handleBarCodeScanned = ({ data }: { data: string }) => {
     const qrData = JSON.parse(data);
     
     if (qrData.type === 'payment' && qrData.transactionId) {
-      // Check if this payment is for the current merchant using email (most reliable)
-      const isCorrectMerchant = qrData.merchantEmail === user?.email;
+      // Check if this payment is for the current merchant (by email or merchantId)
+      const isCorrectMerchant =
+        qrData.merchantEmail === user?.email ||
+        qrData.merchantId === user?.merchantId;
 
       if (!isCorrectMerchant) {
-        Alert.alert(
-          '❌ Wrong Merchant',
-          `This payment is for a different merchant.\n\nExpected: ${qrData.merchantName}\nYou are: ${user?.merchantName}\n\nStudent may have selected the wrong merchant.`,
-          [
-            { 
-              text: 'OK', 
-              onPress: () => {
-                setScanned(false);
-                setPaymentData(null);
-              }
-            }
-          ]
-        );
+        toast.show({
+          type: 'error',
+          text1: 'Transaction Failed',
+          text2: 'This QR is for a different merchant. Student may have selected the wrong one.',
+        });
+        setScanned(false);
+        setPaymentData(null);
         return;
       }
 
@@ -62,14 +63,20 @@ const handleBarCodeScanned = ({ data }: { data: string }) => {
       setPaymentData(qrData);
       setConfirmModalVisible(true);
     } else {
-      Alert.alert('Invalid QR Code', 'This is not a valid payment QR code', [
-        { text: 'OK', onPress: () => setScanned(false) }
-      ]);
+      toast.show({
+        type: 'error',
+        text1: 'Transaction Failed',
+        text2: 'This is not a valid payment QR code.',
+      });
+      setScanned(false);
     }
   } catch (error) {
-    Alert.alert('Invalid QR Code', 'Could not read QR code data', [
-      { text: 'OK', onPress: () => setScanned(false) }
-    ]);
+    toast.show({
+      type: 'error',
+      text1: 'Invalid QR Code',
+      text2: 'Could not read QR code data.',
+    });
+    setScanned(false);
   }
 };
 
@@ -79,9 +86,13 @@ const handleBarCodeScanned = ({ data }: { data: string }) => {
 
     try {
       // Double check merchant again before processing
-      if (paymentData.merchantId !== user?.merchantId || 
-          paymentData.merchantEmail !== user?.email) {
-        Alert.alert('Error', 'Merchant verification failed');
+      if (paymentData.merchantId !== user?.merchantId ||
+          (paymentData.merchantEmail && paymentData.merchantEmail !== user?.email)) {
+        toast.show({
+          type: 'error',
+          text1: 'Transaction Failed',
+          text2: 'Merchant verification failed.',
+        });
         setConfirmModalVisible(false);
         setScanned(false);
         setPaymentData(null);
@@ -89,13 +100,17 @@ const handleBarCodeScanned = ({ data }: { data: string }) => {
         return;
       }
 
-      // Check if already processed
+      // Check if already processed (use GLOBAL_TRANSACTIONS if ALL_TRANSACTIONS not found)
       const allTxnsData = await AsyncStorage.getItem('ALL_TRANSACTIONS');
       const allTxns = allTxnsData ? JSON.parse(allTxnsData) : [];
       const exists = allTxns.find((t: any) => t.transaction_id === paymentData.transactionId);
 
       if (exists) {
-        Alert.alert('Already Processed', 'This payment has already been completed');
+        toast.show({
+          type: 'error',
+          text1: 'Transaction Failed',
+          text2: 'This payment has already been completed.',
+        });
         setConfirmModalVisible(false);
         setScanned(false);
         setPaymentData(null);
@@ -111,10 +126,11 @@ const handleBarCodeScanned = ({ data }: { data: string }) => {
 
       // Check student balance
       if (studentWallet.balance < paymentData.amount) {
-        Alert.alert(
-          'Insufficient Balance',
-          `Student only has ₹${studentWallet.balance.toFixed(2)} in wallet`
-        );
+        toast.show({
+          type: 'error',
+          text1: 'Transaction Failed',
+          text2: `Insufficient balance. Student has ₹${studentWallet.balance.toFixed(2)} only.`,
+        });
         setConfirmModalVisible(false);
         setScanned(false);
         setPaymentData(null);
@@ -175,14 +191,34 @@ const handleBarCodeScanned = ({ data }: { data: string }) => {
       setScanned(false);
       setPaymentData(null);
 
-      Alert.alert(
-        '✅ Payment Successful!',
-        `Received ₹${paymentData.amount.toFixed(2)} from ${paymentData.studentName}\n\nTransaction ID: ${paymentData.transactionId}`,
-        [{ text: 'OK' }]
-      );
+      toast.show({
+        type: 'success',
+        text1: 'Payment Successful',
+        text2: `₹${paymentData.amount.toFixed(2)} received from ${paymentData.studentName}`,
+      });
     } catch (error: any) {
-      Alert.alert('Payment Failed', error.message || 'Failed to process payment');
+      const msg = error?.message || '';
+      const isNetworkOrStorage =
+        /network|connection|timeout|fetch|storage|quota|unavailable/i.test(msg) ||
+        error?.code === 'NETWORK_ERROR' ||
+        error?.name === 'NetworkError';
+
+      if (isNetworkOrStorage) {
+        toast.show({
+          type: 'error',
+          text1: 'Network Issue',
+          text2: 'Please check your connection and try again.',
+        });
+      } else {
+        toast.show({
+          type: 'error',
+          text1: 'Transaction Failed',
+          text2: msg || 'Failed to process payment.',
+        });
+      }
+      setConfirmModalVisible(false);
       setScanned(false);
+      setPaymentData(null);
     } finally {
       setProcessing(false);
     }
@@ -191,7 +227,7 @@ const handleBarCodeScanned = ({ data }: { data: string }) => {
   if (hasPermission === null) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color={COLORS.merchant} />
+        <ActivityIndicator size="large" color={colors.merchant} />
         <Text style={styles.permissionText}>Requesting camera permission...</Text>
       </View>
     );
@@ -200,7 +236,7 @@ const handleBarCodeScanned = ({ data }: { data: string }) => {
   if (hasPermission === false) {
     return (
       <View style={styles.container}>
-        <Ionicons name="ban" size={64} color={COLORS.danger} />
+        <Ionicons name="ban" size={64} color={colors.danger} />
         <Text style={styles.permissionText}>No access to camera</Text>
         <TouchableOpacity style={styles.permissionButton} onPress={getCameraPermission}>
           <Text style={styles.permissionButtonText}>Grant Permission</Text>
@@ -284,7 +320,7 @@ const handleBarCodeScanned = ({ data }: { data: string }) => {
                 }}
                 disabled={processing}
               >
-                <Ionicons name="close" size={24} color={COLORS.text} />
+                <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
 
@@ -292,7 +328,7 @@ const handleBarCodeScanned = ({ data }: { data: string }) => {
               <>
                 {/* Verification Badge */}
                 <View style={styles.verificationBadge}>
-                  <Ionicons name="checkmark-circle" size={24} color={COLORS.success} />
+                  <Ionicons name="checkmark-circle" size={24} color={colors.success} />
                   <Text style={styles.verificationText}>
                     ✓ Payment verified for {user?.merchantName}
                   </Text>
@@ -307,7 +343,7 @@ const handleBarCodeScanned = ({ data }: { data: string }) => {
                 {/* Student Info */}
                 <View style={styles.infoCard}>
                   <View style={styles.infoIcon}>
-                    <Ionicons name="person" size={24} color={COLORS.student} />
+                    <Ionicons name="person" size={24} color={colors.student} />
                   </View>
                   <View style={styles.infoDetails}>
                     <Text style={styles.infoLabel}>Student</Text>
@@ -362,10 +398,10 @@ const handleBarCodeScanned = ({ data }: { data: string }) => {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -373,7 +409,7 @@ const styles = StyleSheet.create({
     width: '100%',
     padding: 20,
     paddingTop: 60,
-    backgroundColor: COLORS.merchant,
+    backgroundColor: colors.merchant,
   },
   title: {
     fontSize: 28,
@@ -411,7 +447,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 40,
     height: 40,
-    borderColor: COLORS.merchant,
+    borderColor: colors.merchant,
   },
   topLeft: {
     top: 0,
@@ -466,7 +502,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.merchant,
+    backgroundColor: colors.merchant,
     margin: 20,
     padding: 16,
     borderRadius: 12,
@@ -480,12 +516,12 @@ const styles = StyleSheet.create({
   },
   permissionText: {
     fontSize: 18,
-    color: COLORS.text,
+    color: colors.text,
     marginTop: 20,
     textAlign: 'center',
   },
   permissionButton: {
-    backgroundColor: COLORS.merchant,
+    backgroundColor: colors.merchant,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 12,
@@ -502,7 +538,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
@@ -517,12 +553,12 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
   },
   verificationBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.success + '15',
+    backgroundColor: colors.success + '15',
     padding: 12,
     borderRadius: 12,
     marginBottom: 20,
@@ -531,28 +567,28 @@ const styles = StyleSheet.create({
   verificationText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.success,
+    color: colors.success,
   },
   amountSection: {
     alignItems: 'center',
-    backgroundColor: COLORS.merchant + '15',
+    backgroundColor: colors.merchant + '15',
     padding: 24,
     borderRadius: 16,
     marginBottom: 20,
   },
   amountLabel: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginBottom: 8,
   },
   amountValue: {
     fontSize: 48,
     fontWeight: 'bold',
-    color: COLORS.merchant,
+    color: colors.merchant,
   },
   infoCard: {
     flexDirection: 'row',
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
     padding: 16,
     borderRadius: 12,
     marginBottom: 20,
@@ -562,7 +598,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: COLORS.student + '20',
+    backgroundColor: colors.student + '20',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -571,21 +607,21 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 12,
-    color: COLORS.textLight,
+    color: colors.textLight,
   },
   infoValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
     marginTop: 2,
   },
   infoSubvalue: {
     fontSize: 12,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 2,
   },
   detailsSection: {
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
     padding: 16,
     borderRadius: 12,
     marginBottom: 20,
@@ -595,16 +631,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: colors.border,
   },
   detailLabel: {
     fontSize: 13,
-    color: COLORS.textLight,
+    color: colors.textLight,
   },
   detailValue: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.text,
+    color: colors.text,
     maxWidth: '60%',
     textAlign: 'right',
   },
@@ -612,7 +648,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.merchant,
+    backgroundColor: colors.merchant,
     padding: 18,
     borderRadius: 12,
     gap: 10,

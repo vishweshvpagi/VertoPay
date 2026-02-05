@@ -13,7 +13,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { useAdmin } from '../../hooks/useAdmin';
-import { COLORS } from '../../constants/Config';
+import { useTheme } from '../../hooks/useTheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
@@ -21,6 +21,7 @@ const { width } = Dimensions.get('window');
 export default function AdminDashboardScreen() {
   const { user, logout } = useAuth();
   const { getAllUsers, getAllTransactions, getSuspiciousTransactions } = useAdmin();
+  const { colors, theme, toggleTheme } = useTheme();
   const router = useRouter();
   
   const [stats, setStats] = useState({
@@ -177,37 +178,44 @@ const handleLogout = async () => {
     }
   };
 
+  const styles = getStyles(colors);
+
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.background }]}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={loadStats} />}
     >
       {/* Header - FIXED */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.admin }]}>
         <View>
           <Text style={styles.greeting}>Admin Dashboard</Text>
           <Text style={styles.email}>{user?.name || user?.email}</Text>
         </View>
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-          <Ionicons name="log-out-outline" size={24} color={COLORS.admin} />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity onPress={toggleTheme} style={[styles.iconButton, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+            <Ionicons name={theme === 'dark' ? 'moon' : 'sunny'} size={24} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleLogout} style={[styles.logoutButton, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+            <Ionicons name="log-out-outline" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Quick Stats Cards */}
       <View style={styles.quickStatsContainer}>
-        <View style={[styles.quickStatCard, { backgroundColor: COLORS.primary }]}>
+        <View style={[styles.quickStatCard, { backgroundColor: colors.primary }]}>
           <Ionicons name="people" size={32} color="#fff" />
           <Text style={styles.quickStatNumber}>{stats.totalUsers}</Text>
           <Text style={styles.quickStatLabel}>Total Users</Text>
         </View>
 
-        <View style={[styles.quickStatCard, { backgroundColor: COLORS.success }]}>
+        <View style={[styles.quickStatCard, { backgroundColor: colors.success }]}>
           <Ionicons name="cash" size={32} color="#fff" />
           <Text style={styles.quickStatNumber}>₹{stats.totalVolume}</Text>
           <Text style={styles.quickStatLabel}>Total Volume</Text>
         </View>
 
-        <View style={[styles.quickStatCard, { backgroundColor: COLORS.warning }]}>
+        <View style={[styles.quickStatCard, { backgroundColor: colors.warning }]}>
           <Ionicons name="alert-circle" size={32} color="#fff" />
           <Text style={styles.quickStatNumber}>{stats.suspiciousTransactions}</Text>
           <Text style={styles.quickStatLabel}>Suspicious</Text>
@@ -220,14 +228,14 @@ const handleLogout = async () => {
           style={styles.alertCard}
           onPress={() => router.push('/(admin)/fraud')}
         >
-          <Ionicons name="warning" size={32} color={COLORS.danger} />
+          <Ionicons name="warning" size={32} color={colors.danger} />
           <View style={styles.alertContent}>
             <Text style={styles.alertTitle}>⚠️ Action Required</Text>
             <Text style={styles.alertText}>
               {stats.suspiciousTransactions} transactions need review
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={24} color={COLORS.textLight} />
+          <Ionicons name="chevron-forward" size={24} color={colors.textLight} />
         </TouchableOpacity>
       )}
 
@@ -235,26 +243,26 @@ const handleLogout = async () => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>User Statistics</Text>
         <View style={styles.statsGrid}>
-          <View style={[styles.statCard, { backgroundColor: COLORS.student + '15' }]}>
-            <Ionicons name="school" size={28} color={COLORS.student} />
+          <View style={[styles.statCard, { backgroundColor: colors.student + '15' }]}>
+            <Ionicons name="school" size={28} color={colors.student} />
             <Text style={styles.statNumber}>{stats.totalStudents}</Text>
             <Text style={styles.statLabel}>Students</Text>
           </View>
 
-          <View style={[styles.statCard, { backgroundColor: COLORS.merchant + '15' }]}>
-            <Ionicons name="storefront" size={28} color={COLORS.merchant} />
+          <View style={[styles.statCard, { backgroundColor: colors.merchant + '15' }]}>
+            <Ionicons name="storefront" size={28} color={colors.merchant} />
             <Text style={styles.statNumber}>{stats.totalMerchants}</Text>
             <Text style={styles.statLabel}>Merchants</Text>
           </View>
 
-          <View style={[styles.statCard, { backgroundColor: COLORS.success + '15' }]}>
-            <Ionicons name="checkmark-circle" size={28} color={COLORS.success} />
+          <View style={[styles.statCard, { backgroundColor: colors.success + '15' }]}>
+            <Ionicons name="checkmark-circle" size={28} color={colors.success} />
             <Text style={styles.statNumber}>{stats.activeUsers}</Text>
             <Text style={styles.statLabel}>Active</Text>
           </View>
 
-          <View style={[styles.statCard, { backgroundColor: COLORS.danger + '15' }]}>
-            <Ionicons name="ban" size={28} color={COLORS.danger} />
+          <View style={[styles.statCard, { backgroundColor: colors.danger + '15' }]}>
+            <Ionicons name="ban" size={28} color={colors.danger} />
             <Text style={styles.statNumber}>{stats.blockedUsers}</Text>
             <Text style={styles.statLabel}>Blocked</Text>
           </View>
@@ -265,26 +273,26 @@ const handleLogout = async () => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Transaction Analytics</Text>
         <View style={styles.statsGrid}>
-          <View style={[styles.statCard, { backgroundColor: COLORS.primary + '15' }]}>
-            <Ionicons name="receipt" size={28} color={COLORS.primary} />
+          <View style={[styles.statCard, { backgroundColor: colors.primary + '15' }]}>
+            <Ionicons name="receipt" size={28} color={colors.primary} />
             <Text style={styles.statNumber}>{stats.totalTransactions}</Text>
             <Text style={styles.statLabel}>Total Txns</Text>
           </View>
 
-          <View style={[styles.statCard, { backgroundColor: COLORS.success + '15' }]}>
-            <Ionicons name="checkmark-done" size={28} color={COLORS.success} />
+          <View style={[styles.statCard, { backgroundColor: colors.success + '15' }]}>
+            <Ionicons name="checkmark-done" size={28} color={colors.success} />
             <Text style={styles.statNumber}>{stats.completedTransactions}</Text>
             <Text style={styles.statLabel}>Completed</Text>
           </View>
 
-          <View style={[styles.statCard, { backgroundColor: COLORS.warning + '15' }]}>
-            <Ionicons name="refresh" size={28} color={COLORS.warning} />
+          <View style={[styles.statCard, { backgroundColor: colors.warning + '15' }]}>
+            <Ionicons name="refresh" size={28} color={colors.warning} />
             <Text style={styles.statNumber}>{stats.reversedTransactions}</Text>
             <Text style={styles.statLabel}>Reversed</Text>
           </View>
 
-          <View style={[styles.statCard, { backgroundColor: COLORS.danger + '15' }]}>
-            <Ionicons name="close-circle" size={28} color={COLORS.danger} />
+          <View style={[styles.statCard, { backgroundColor: colors.danger + '15' }]}>
+            <Ionicons name="close-circle" size={28} color={colors.danger} />
             <Text style={styles.statNumber}>{stats.fraudTransactions}</Text>
             <Text style={styles.statLabel}>Fraud</Text>
           </View>
@@ -297,7 +305,7 @@ const handleLogout = async () => {
         <View style={styles.financialCards}>
           <View style={styles.financialCard}>
             <View style={styles.financialHeader}>
-              <Ionicons name="trending-up" size={24} color={COLORS.success} />
+              <Ionicons name="trending-up" size={24} color={colors.success} />
               <Text style={styles.financialTitle}>Total Volume</Text>
             </View>
             <Text style={styles.financialAmount}>₹{stats.totalVolume.toFixed(2)}</Text>
@@ -306,7 +314,7 @@ const handleLogout = async () => {
 
           <View style={styles.financialCard}>
             <View style={styles.financialHeader}>
-              <Ionicons name="today" size={24} color={COLORS.primary} />
+              <Ionicons name="today" size={24} color={colors.primary} />
               <Text style={styles.financialTitle}>Today's Volume</Text>
             </View>
             <Text style={styles.financialAmount}>₹{stats.todayVolume.toFixed(2)}</Text>
@@ -315,7 +323,7 @@ const handleLogout = async () => {
 
           <View style={styles.financialCard}>
             <View style={styles.financialHeader}>
-              <Ionicons name="calculator" size={24} color={COLORS.warning} />
+              <Ionicons name="calculator" size={24} color={colors.warning} />
               <Text style={styles.financialTitle}>Avg Transaction</Text>
             </View>
             <Text style={styles.financialAmount}>₹{stats.avgTransactionAmount.toFixed(2)}</Text>
@@ -324,7 +332,7 @@ const handleLogout = async () => {
 
           <View style={styles.financialCard}>
             <View style={styles.financialHeader}>
-              <Ionicons name="wallet" size={24} color={COLORS.student} />
+              <Ionicons name="wallet" size={24} color={colors.student} />
               <Text style={styles.financialTitle}>Student Balance</Text>
             </View>
             <Text style={styles.financialAmount}>₹{stats.totalStudentBalance.toFixed(2)}</Text>
@@ -333,7 +341,7 @@ const handleLogout = async () => {
 
           <View style={styles.financialCard}>
             <View style={styles.financialHeader}>
-              <Ionicons name="briefcase" size={24} color={COLORS.merchant} />
+              <Ionicons name="briefcase" size={24} color={colors.merchant} />
               <Text style={styles.financialTitle}>Merchant Earnings</Text>
             </View>
             <Text style={styles.financialAmount}>₹{stats.totalMerchantEarnings.toFixed(2)}</Text>
@@ -342,7 +350,7 @@ const handleLogout = async () => {
 
           <View style={styles.financialCard}>
             <View style={styles.financialHeader}>
-              <Ionicons name="trending-down" size={24} color={COLORS.admin} />
+              <Ionicons name="trending-down" size={24} color={colors.admin} />
               <Text style={styles.financialTitle}>Platform Fee</Text>
             </View>
             <Text style={styles.financialAmount}>₹{(stats.totalVolume * 0.02).toFixed(2)}</Text>
@@ -364,12 +372,12 @@ const handleLogout = async () => {
             <View key={index} style={styles.activityCard}>
               <View style={[
                 styles.activityIcon,
-                { backgroundColor: activity.type === 'payment' ? COLORS.primary + '20' : COLORS.success + '20' }
+                { backgroundColor: activity.type === 'payment' ? colors.primary + '20' : colors.success + '20' }
               ]}>
                 <Ionicons
                   name={activity.type === 'payment' ? 'arrow-forward' : 'add'}
                   size={20}
-                  color={activity.type === 'payment' ? COLORS.primary : COLORS.success}
+                  color={activity.type === 'payment' ? colors.primary : colors.success}
                 />
               </View>
               <View style={styles.activityInfo}>
@@ -396,30 +404,30 @@ const handleLogout = async () => {
           style={styles.actionButton}
           onPress={() => router.push('/(admin)/users')}
         >
-          <View style={[styles.actionIcon, { backgroundColor: COLORS.primary + '20' }]}>
-            <Ionicons name="people" size={24} color={COLORS.primary} />
+          <View style={[styles.actionIcon, { backgroundColor: colors.primary + '20' }]}>
+            <Ionicons name="people" size={24} color={colors.primary} />
           </View>
           <Text style={styles.actionText}>Manage Users</Text>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+          <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.actionButton}
           onPress={() => router.push('/(admin)/transactions')}
         >
-          <View style={[styles.actionIcon, { backgroundColor: COLORS.success + '20' }]}>
-            <Ionicons name="receipt" size={24} color={COLORS.success} />
+          <View style={[styles.actionIcon, { backgroundColor: colors.success + '20' }]}>
+            <Ionicons name="receipt" size={24} color={colors.success} />
           </View>
           <Text style={styles.actionText}>View Transactions</Text>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+          <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.actionButton}
           onPress={() => router.push('/(admin)/fraud')}
         >
-          <View style={[styles.actionIcon, { backgroundColor: COLORS.danger + '20' }]}>
-            <Ionicons name="shield" size={24} color={COLORS.danger} />
+          <View style={[styles.actionIcon, { backgroundColor: colors.danger + '20' }]}>
+            <Ionicons name="shield" size={24} color={colors.danger} />
           </View>
           <Text style={styles.actionText}>Fraud Detection</Text>
           {stats.suspiciousTransactions > 0 && (
@@ -427,18 +435,18 @@ const handleLogout = async () => {
               <Text style={styles.actionBadgeText}>{stats.suspiciousTransactions}</Text>
             </View>
           )}
-          <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+          <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.actionButton}
           onPress={() => router.push('/(admin)/audit')}
         >
-          <View style={[styles.actionIcon, { backgroundColor: COLORS.warning + '20' }]}>
-            <Ionicons name="document-text" size={24} color={COLORS.warning} />
+          <View style={[styles.actionIcon, { backgroundColor: colors.warning + '20' }]}>
+            <Ionicons name="document-text" size={24} color={colors.warning} />
           </View>
           <Text style={styles.actionText}>Audit Log</Text>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+          <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
         </TouchableOpacity>
       </View>
 
@@ -450,7 +458,7 @@ const handleLogout = async () => {
           style={styles.toolButton}
           onPress={exportData}
         >
-          <Ionicons name="download" size={20} color={COLORS.primary} />
+          <Ionicons name="download" size={20} color={colors.primary} />
           <Text style={styles.toolText}>Export All Data</Text>
         </TouchableOpacity>
 
@@ -458,7 +466,7 @@ const handleLogout = async () => {
           style={styles.toolButton}
           onPress={loadStats}
         >
-          <Ionicons name="refresh" size={20} color={COLORS.success} />
+          <Ionicons name="refresh" size={20} color={colors.success} />
           <Text style={styles.toolText}>Refresh Dashboard</Text>
         </TouchableOpacity>
 
@@ -466,8 +474,8 @@ const handleLogout = async () => {
           style={[styles.toolButton, styles.dangerButton]}
           onPress={clearAllData}
         >
-          <Ionicons name="trash" size={20} color={COLORS.danger} />
-          <Text style={[styles.toolText, { color: COLORS.danger }]}>Clear All Data</Text>
+          <Ionicons name="trash" size={20} color={colors.danger} />
+          <Text style={[styles.toolText, { color: colors.danger }]}>Clear All Data</Text>
         </TouchableOpacity>
       </View>
 
@@ -480,10 +488,9 @@ const handleLogout = async () => {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
   header: {
     flexDirection: 'row',
@@ -491,7 +498,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     paddingTop: 60,
-    backgroundColor: COLORS.admin,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  iconButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   greeting: {
     fontSize: 24,
@@ -547,7 +564,7 @@ const styles = StyleSheet.create({
   },
   alertCard: {
     flexDirection: 'row',
-    backgroundColor: COLORS.danger + '10',
+    backgroundColor: colors.danger + '10',
     marginHorizontal: 16,
     marginBottom: 16,
     padding: 16,
@@ -555,7 +572,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     borderWidth: 1,
-    borderColor: COLORS.danger,
+    borderColor: colors.danger,
   },
   alertContent: {
     flex: 1,
@@ -563,11 +580,11 @@ const styles = StyleSheet.create({
   alertTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
   },
   alertText: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 4,
   },
   section: {
@@ -582,12 +599,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: 16,
   },
   viewAllText: {
     fontSize: 14,
-    color: COLORS.primary,
+    color: colors.primary,
     fontWeight: '600',
   },
   statsGrid: {
@@ -605,22 +622,22 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
   },
   statLabel: {
     fontSize: 12,
-    color: COLORS.textLight,
+    color: colors.textLight,
     textAlign: 'center',
   },
   financialCards: {
     gap: 12,
   },
   financialCard: {
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     padding: 16,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   financialHeader: {
     flexDirection: 'row',
@@ -631,21 +648,21 @@ const styles = StyleSheet.create({
   financialTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.textLight,
+    color: colors.textLight,
   },
   financialAmount: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: 4,
   },
   financialSubtext: {
     fontSize: 12,
-    color: COLORS.textLight,
+    color: colors.textLight,
   },
   activityCard: {
     flexDirection: 'row',
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     padding: 12,
     borderRadius: 12,
     marginBottom: 8,
@@ -665,27 +682,27 @@ const styles = StyleSheet.create({
   activityTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.text,
+    color: colors.text,
   },
   activitySubtitle: {
     fontSize: 11,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 2,
   },
   activityAmount: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
   },
   noActivity: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: colors.textLight,
     textAlign: 'center',
     padding: 20,
   },
   actionButton: {
     flexDirection: 'row',
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -702,11 +719,11 @@ const styles = StyleSheet.create({
   actionText: {
     flex: 1,
     fontSize: 16,
-    color: COLORS.text,
+    color: colors.text,
     fontWeight: '500',
   },
   actionBadge: {
-    backgroundColor: COLORS.danger,
+    backgroundColor: colors.danger,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -719,7 +736,7 @@ const styles = StyleSheet.create({
   toolButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     padding: 14,
     borderRadius: 12,
     marginBottom: 8,
@@ -728,12 +745,12 @@ const styles = StyleSheet.create({
   toolText: {
     fontSize: 14,
     fontWeight: '500',
-    color: COLORS.text,
+    color: colors.text,
   },
   dangerButton: {
     borderWidth: 1,
-    borderColor: COLORS.danger,
-    backgroundColor: COLORS.danger + '10',
+    borderColor: colors.danger,
+    backgroundColor: colors.danger + '10',
   },
   footer: {
     padding: 20,
@@ -741,7 +758,7 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 12,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 4,
   },
 });

@@ -13,13 +13,14 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { useAdmin } from '../../hooks/useAdmin';
-import { COLORS } from '../../constants/Config';
+import { useTheme } from '../../hooks/useTheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function UsersScreen() {
   const { user } = useAuth();
   const { getAllUsers, blockUser, unblockUser, deleteUser } = useAdmin();
-  
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const [users, setUsers] = useState<any[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -186,12 +187,12 @@ export default function UsersScreen() {
       <View style={styles.userHeader}>
         <View style={[
           styles.roleIcon,
-          { backgroundColor: item.role === 'student' ? COLORS.student + '20' : COLORS.merchant + '20' }
+          { backgroundColor: item.role === 'student' ? colors.student + '20' : colors.merchant + '20' }
         ]}>
           <Ionicons
             name={item.role === 'student' ? 'school' : 'storefront'}
             size={24}
-            color={item.role === 'student' ? COLORS.student : COLORS.merchant}
+            color={item.role === 'student' ? colors.student : colors.merchant}
           />
         </View>
         <View style={styles.userInfo}>
@@ -224,7 +225,7 @@ export default function UsersScreen() {
             Joined: {new Date(item.createdAt).toLocaleDateString()}
           </Text>
         </View>
-        <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+        <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
       </View>
 
       <View style={styles.userActions}>
@@ -233,7 +234,7 @@ export default function UsersScreen() {
             style={[styles.actionBtn, styles.blockBtn]}
             onPress={() => handleBlockUser(item)}
           >
-            <Ionicons name="ban" size={18} color={COLORS.danger} />
+            <Ionicons name="ban" size={18} color={colors.danger} />
             <Text style={styles.blockBtnText}>Block</Text>
           </TouchableOpacity>
         ) : (
@@ -241,7 +242,7 @@ export default function UsersScreen() {
             style={[styles.actionBtn, styles.unblockBtn]}
             onPress={() => handleUnblockUser(item)}
           >
-            <Ionicons name="checkmark-circle" size={18} color={COLORS.success} />
+            <Ionicons name="checkmark-circle" size={18} color={colors.success} />
             <Text style={styles.unblockBtnText}>Unblock</Text>
           </TouchableOpacity>
         )}
@@ -250,7 +251,7 @@ export default function UsersScreen() {
           style={[styles.actionBtn, styles.deleteBtn]}
           onPress={() => handleDeleteUser(item)}
         >
-          <Ionicons name="trash" size={18} color={COLORS.danger} />
+          <Ionicons name="trash" size={18} color={colors.danger} />
           <Text style={styles.deleteBtnText}>Delete</Text>
         </TouchableOpacity>
       </View>
@@ -265,17 +266,17 @@ export default function UsersScreen() {
       </View>
 
       <View style={styles.searchBar}>
-        <Ionicons name="search" size={20} color={COLORS.textLight} />
+        <Ionicons name="search" size={20} color={colors.textLight} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search by name, email, or ID..."
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholderTextColor={COLORS.textLight}
+          placeholderTextColor={colors.textLight}
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={20} color={COLORS.textLight} />
+            <Ionicons name="close-circle" size={20} color={colors.textLight} />
           </TouchableOpacity>
         )}
       </View>
@@ -295,7 +296,7 @@ export default function UsersScreen() {
           style={[styles.filterChip, filterRole === 'student' && styles.filterChipActive]}
           onPress={() => setFilterRole('student')}
         >
-          <Ionicons name="school" size={14} color={filterRole === 'student' ? '#fff' : COLORS.student} />
+          <Ionicons name="school" size={14} color={filterRole === 'student' ? '#fff' : colors.student} />
           <Text style={[styles.filterText, filterRole === 'student' && styles.filterTextActive]}>
             Students
           </Text>
@@ -305,7 +306,7 @@ export default function UsersScreen() {
           style={[styles.filterChip, filterRole === 'merchant' && styles.filterChipActive]}
           onPress={() => setFilterRole('merchant')}
         >
-          <Ionicons name="storefront" size={14} color={filterRole === 'merchant' ? '#fff' : COLORS.merchant} />
+          <Ionicons name="storefront" size={14} color={filterRole === 'merchant' ? '#fff' : colors.merchant} />
           <Text style={[styles.filterText, filterRole === 'merchant' && styles.filterTextActive]}>
             Merchants
           </Text>
@@ -327,7 +328,7 @@ export default function UsersScreen() {
           style={[styles.filterChip, filterStatus === 'active' && styles.filterChipActive]}
           onPress={() => setFilterStatus('active')}
         >
-          <Ionicons name="checkmark" size={14} color={filterStatus === 'active' ? '#fff' : COLORS.success} />
+          <Ionicons name="checkmark" size={14} color={filterStatus === 'active' ? '#fff' : colors.success} />
           <Text style={[styles.filterText, filterStatus === 'active' && styles.filterTextActive]}>
             Active
           </Text>
@@ -337,7 +338,7 @@ export default function UsersScreen() {
           style={[styles.filterChip, filterStatus === 'blocked' && styles.filterChipActive]}
           onPress={() => setFilterStatus('blocked')}
         >
-          <Ionicons name="ban" size={14} color={filterStatus === 'blocked' ? '#fff' : COLORS.danger} />
+          <Ionicons name="ban" size={14} color={filterStatus === 'blocked' ? '#fff' : colors.danger} />
           <Text style={[styles.filterText, filterStatus === 'blocked' && styles.filterTextActive]}>
             Blocked
           </Text>
@@ -352,7 +353,7 @@ export default function UsersScreen() {
         refreshControl={<RefreshControl refreshing={loading} onRefresh={loadUsers} />}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="people-outline" size={64} color={COLORS.textLight} />
+            <Ionicons name="people-outline" size={64} color={colors.textLight} />
             <Text style={styles.emptyText}>No users found</Text>
             <Text style={styles.emptySubtext}>Try adjusting your filters</Text>
           </View>
@@ -369,7 +370,7 @@ export default function UsersScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Ionicons name="ban" size={32} color={COLORS.danger} />
+              <Ionicons name="ban" size={32} color={colors.danger} />
               <Text style={styles.modalTitle}>Block User</Text>
             </View>
             <Text style={styles.modalSubtitle}>
@@ -386,7 +387,7 @@ export default function UsersScreen() {
               onChangeText={setBlockReason}
               multiline
               numberOfLines={4}
-              placeholderTextColor={COLORS.textLight}
+              placeholderTextColor={colors.textLight}
             />
 
             <View style={styles.modalButtons}>
@@ -424,7 +425,7 @@ export default function UsersScreen() {
             <View style={styles.detailsHeader}>
               <View style={[
                 styles.detailsIcon,
-                { backgroundColor: userDetails?.role === 'student' ? COLORS.student : COLORS.merchant }
+                { backgroundColor: userDetails?.role === 'student' ? colors.student : colors.merchant }
               ]}>
                 <Ionicons
                   name={userDetails?.role === 'student' ? 'school' : 'storefront'}
@@ -436,7 +437,7 @@ export default function UsersScreen() {
                 style={styles.closeButton}
                 onPress={() => setUserDetailsModalVisible(false)}
               >
-                <Ionicons name="close" size={24} color={COLORS.text} />
+                <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
 
@@ -445,7 +446,7 @@ export default function UsersScreen() {
 
             <View style={styles.detailsGrid}>
               <View style={styles.detailCard}>
-                <Ionicons name="calendar" size={20} color={COLORS.primary} />
+                <Ionicons name="calendar" size={20} color={colors.primary} />
                 <Text style={styles.detailLabel}>Joined</Text>
                 <Text style={styles.detailValue}>
                   {userDetails && new Date(userDetails.createdAt).toLocaleDateString()}
@@ -453,13 +454,13 @@ export default function UsersScreen() {
               </View>
 
               <View style={styles.detailCard}>
-                <Ionicons name="wallet" size={20} color={COLORS.success} />
+                <Ionicons name="wallet" size={20} color={colors.success} />
                 <Text style={styles.detailLabel}>Balance</Text>
                 <Text style={styles.detailValue}>₹{userDetails?.balance || 0}</Text>
               </View>
 
               <View style={styles.detailCard}>
-                <Ionicons name="receipt" size={20} color={COLORS.warning} />
+                <Ionicons name="receipt" size={20} color={colors.warning} />
                 <Text style={styles.detailLabel}>Transactions</Text>
                 <Text style={styles.detailValue}>{userDetails?.transactionCount || 0}</Text>
               </View>
@@ -468,7 +469,7 @@ export default function UsersScreen() {
                 <Ionicons 
                   name={userDetails?.status === 'active' ? 'checkmark-circle' : 'ban'} 
                   size={20} 
-                  color={userDetails?.status === 'active' ? COLORS.success : COLORS.danger} 
+                  color={userDetails?.status === 'active' ? colors.success : colors.danger} 
                 />
                 <Text style={styles.detailLabel}>Status</Text>
                 <Text style={styles.detailValue}>
@@ -499,7 +500,7 @@ export default function UsersScreen() {
 
             {userDetails?.blockReason && (
               <View style={styles.blockReasonCard}>
-                <Ionicons name="information-circle" size={20} color={COLORS.danger} />
+                <Ionicons name="information-circle" size={20} color={colors.danger} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.blockReasonLabel}>Block Reason</Text>
                   <Text style={styles.blockReasonText}>{userDetails.blockReason}</Text>
@@ -513,42 +514,42 @@ export default function UsersScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
   header: {
     padding: 20,
     paddingTop: 60,
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
   },
   subtitle: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 4,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     margin: 20,
     marginBottom: 10,
     padding: 12,
     borderRadius: 12,
     gap: 8,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: COLORS.text,
+    color: colors.text,
   },
   filterRow: {
     flexDirection: 'row',
@@ -560,7 +561,7 @@ const styles = StyleSheet.create({
   filterLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.textLight,
+    color: colors.textLight,
   },
   filterChip: {
     flexDirection: 'row',
@@ -568,18 +569,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     gap: 4,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   filterChipActive: {
-    backgroundColor: COLORS.admin,
-    borderColor: COLORS.admin,
+    backgroundColor: colors.admin,
+    borderColor: colors.admin,
   },
   filterText: {
     fontSize: 12,
-    color: COLORS.text,
+    color: colors.text,
     fontWeight: '500',
   },
   filterTextActive: {
@@ -590,12 +591,12 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   userCard: {
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     padding: 16,
     borderRadius: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   userHeader: {
     flexDirection: 'row',
@@ -622,12 +623,12 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
   },
   blockedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.danger,
+    backgroundColor: colors.danger,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
@@ -641,7 +642,7 @@ const styles = StyleSheet.create({
   activeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.success,
+    backgroundColor: colors.success,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
@@ -654,23 +655,23 @@ const styles = StyleSheet.create({
   },
   userEmail: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginBottom: 2,
   },
   userId: {
     fontSize: 12,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginBottom: 2,
   },
   blockReason: {
     fontSize: 12,
-    color: COLORS.danger,
+    color: colors.danger,
     marginTop: 4,
     fontStyle: 'italic',
   },
   userDate: {
     fontSize: 11,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 4,
   },
   userActions: {
@@ -687,34 +688,34 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   blockBtn: {
-    backgroundColor: COLORS.danger + '20',
+    backgroundColor: colors.danger + '20',
     borderWidth: 1,
-    borderColor: COLORS.danger,
+    borderColor: colors.danger,
   },
   blockBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.danger,
+    color: colors.danger,
   },
   unblockBtn: {
-    backgroundColor: COLORS.success + '20',
+    backgroundColor: colors.success + '20',
     borderWidth: 1,
-    borderColor: COLORS.success,
+    borderColor: colors.success,
   },
   unblockBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.success,
+    color: colors.success,
   },
   deleteBtn: {
-    backgroundColor: COLORS.danger + '10',
+    backgroundColor: colors.danger + '10',
     borderWidth: 1,
-    borderColor: COLORS.danger + '50',
+    borderColor: colors.danger + '50',
   },
   deleteBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.danger,
+    color: colors.danger,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -723,13 +724,13 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 18,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 16,
     fontWeight: '600',
   },
   emptySubtext: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 8,
   },
   modalOverlay: {
@@ -739,7 +740,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContent: {
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     borderRadius: 20,
     padding: 24,
     maxHeight: '80%',
@@ -751,23 +752,23 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
     marginTop: 8,
   },
   modalSubtitle: {
     fontSize: 16,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginBottom: 12,
     textAlign: 'center',
   },
   modalWarning: {
     fontSize: 14,
-    color: COLORS.warning,
+    color: colors.warning,
     marginBottom: 20,
     textAlign: 'center',
   },
   reasonInput: {
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
     padding: 12,
     borderRadius: 12,
     fontSize: 16,
@@ -775,8 +776,8 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    color: COLORS.text,
+    borderColor: colors.border,
+    color: colors.text,
   },
   modalButtons: {
     flexDirection: 'row',
@@ -786,21 +787,21 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     borderRadius: 12,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   modalCancelText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text,
+    color: colors.text,
   },
   modalConfirmBtn: {
     flex: 1,
     padding: 16,
     borderRadius: 12,
-    backgroundColor: COLORS.danger,
+    backgroundColor: colors.danger,
     alignItems: 'center',
   },
   modalConfirmText: {
@@ -823,18 +824,18 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: 8,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
     borderRadius: 20,
   },
   detailsName: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: 4,
   },
   detailsEmail: {
     fontSize: 16,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginBottom: 20,
   },
   detailsGrid: {
@@ -845,56 +846,56 @@ const styles = StyleSheet.create({
   },
   detailCard: {
     width: '48%',
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
     padding: 12,
     borderRadius: 12,
     alignItems: 'center',
   },
   detailLabel: {
     fontSize: 12,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 4,
   },
   detailValue: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
     marginTop: 2,
   },
   infoCard: {
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
     padding: 12,
     borderRadius: 12,
     marginBottom: 8,
   },
   infoLabel: {
     fontSize: 12,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginBottom: 4,
   },
   infoValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text,
+    color: colors.text,
   },
   blockReasonCard: {
     flexDirection: 'row',
-    backgroundColor: COLORS.danger + '10',
+    backgroundColor: colors.danger + '10',
     padding: 12,
     borderRadius: 12,
     gap: 12,
     borderWidth: 1,
-    borderColor: COLORS.danger,
+    borderColor: colors.danger,
     marginTop: 8,
   },
   blockReasonLabel: {
     fontSize: 12,
-    color: COLORS.danger,
+    color: colors.danger,
     fontWeight: '600',
     marginBottom: 4,
   },
   blockReasonText: {
     fontSize: 14,
-    color: COLORS.text,
+    color: colors.text,
   },
 });
