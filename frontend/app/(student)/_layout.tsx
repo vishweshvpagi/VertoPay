@@ -1,28 +1,63 @@
 import { Redirect, Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Platform, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
 
+
 export default function StudentLayout() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
+  console.log('🎓 StudentLayout - Loading:', loading, '| User:', user?.email, '| Role:', user?.role);
+
+  // Show loading indicator while checking auth
+  if (loading) {
+    console.log('⏳ StudentLayout - Showing loading indicator...');
+    return (
+      <View style={{ 
+        flex: 1, 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        backgroundColor: colors.background 
+      }}>
+        <ActivityIndicator size="large" color={colors.student} />
+        <Text style={{ 
+          marginTop: 16, 
+          fontSize: 14, 
+          color: colors.textSecondary,
+          fontWeight: '500'
+        }}>
+          Loading...
+        </Text>
+      </View>
+    );
+  }
+
+  // Only redirect if loading is complete and no user
   if (!user) {
+    console.log('❌ StudentLayout - No user found, redirecting to login');
     return <Redirect href="/(auth)/login" />;
   }
 
+  // Check if user has wrong role
   if (user.role !== 'student') {
+    console.log('❌ StudentLayout - Wrong role:', user.role, '- redirecting');
     if (user.role === 'admin') {
       return <Redirect href="/(admin)" />;
     }
     if (user.role === 'merchant') {
       return <Redirect href="/(merchant)" />;
     }
+    // Fallback - if unknown role, go to login
+    console.log('❌ Unknown role, redirecting to login');
+    return <Redirect href="/(auth)/login" />;
   }
+
+  console.log('✅ StudentLayout - Rendering tabs for student:', user.email);
 
   return (
     <Tabs

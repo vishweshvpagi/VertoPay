@@ -1,7 +1,10 @@
 import React, { createContext, useCallback, useContext, useRef, useState } from 'react';
-import { Text, StyleSheet, Animated } from 'react-native';
+import { Text, StyleSheet, Animated, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 
 export type ToastType = 'success' | 'error' | 'info';
+
 
 export interface ToastData {
   type: ToastType;
@@ -9,19 +12,28 @@ export interface ToastData {
   text2?: string;
 }
 
+
 interface ToastContextType {
   show: (opts: ToastData) => void;
+  success: (text1: string, text2?: string) => void;
+  error: (text1: string, text2?: string) => void;
+  info: (text1: string, text2?: string) => void;
 }
+
 
 const ToastContext = createContext<ToastContextType | null>(null);
 
+
 const TOAST_DURATION = 3500;
+
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toast, setToast] = useState<ToastData | null>(null);
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-100)).current;
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const insets = useSafeAreaInsets();
+
 
   const hide = useCallback(() => {
     Animated.parallel([
@@ -37,6 +49,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       }),
     ]).start(() => setToast(null));
   }, [opacity, translateY]);
+
 
   const show = useCallback(
     (opts: ToastData) => {
@@ -62,14 +75,41 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     [opacity, translateY, hide]
   );
 
+
+  // Helper methods for convenience
+  const success = useCallback(
+    (text1: string, text2?: string) => {
+      show({ type: 'success', text1, text2 });
+    },
+    [show]
+  );
+
+
+  const error = useCallback(
+    (text1: string, text2?: string) => {
+      show({ type: 'error', text1, text2 });
+    },
+    [show]
+  );
+
+
+  const info = useCallback(
+    (text1: string, text2?: string) => {
+      show({ type: 'info', text1, text2 });
+    },
+    [show]
+  );
+
+
   const colors = {
     success: '#10B981',
     error: '#EF4444',
     info: '#6366F1',
   };
 
+
   return (
-    <ToastContext.Provider value={{ show }}>
+    <ToastContext.Provider value={{ show, success, error, info }}>
       {children}
       {toast && (
         <Animated.View
@@ -79,6 +119,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               backgroundColor: colors[toast.type],
               opacity,
               transform: [{ translateY }],
+              top: Platform.select({
+                ios: insets.top + 10,
+                android: insets.top + 10,
+                web: 60,
+                default: 60,
+              }),
             },
           ]}
           pointerEvents="box-none"
@@ -97,36 +143,49 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+
 export function useToast() {
   const ctx = useContext(ToastContext);
   if (!ctx) throw new Error('useToast must be used within ToastProvider');
   return ctx;
 }
 
+
 const styles = StyleSheet.create({
   toast: {
     position: 'absolute',
-    top: 60,
     left: 16,
     right: 16,
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 12,
     zIndex: 9999,
-    elevation: 9999,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 12,
+      },
+      web: {
+        position: 'fixed' as any,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+      },
+    }),
   },
   text1: {
     fontSize: 16,
     fontWeight: '700',
     color: '#fff',
+    letterSpacing: 0.2,
   },
   text2: {
     fontSize: 13,
     color: 'rgba(255,255,255,0.95)',
     marginTop: 4,
+    lineHeight: 18,
   },
 });

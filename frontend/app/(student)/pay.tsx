@@ -1,4 +1,4 @@
- import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { MERCHANT_CATEGORIES } from '../../constants/Config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+
 export default function PayScreen() {
   const { user } = useAuth();
   const { colors } = useTheme();
@@ -25,17 +26,27 @@ export default function PayScreen() {
   const [qrGenerated, setQrGenerated] = useState(false);
   const [qrData, setQrData] = useState('');
 
+
   useEffect(() => {
     loadBalance();
-  }, []);
+    // Debug: Log user object to see its structure
+    console.log('👤 Current User Object:', JSON.stringify(user, null, 2));
+  }, [user]);
+
 
   const loadBalance = async () => {
     try {
       if (user?.email) {
         const walletData = await AsyncStorage.getItem(`WALLET_${user.email}`);
+        console.log('💰 Wallet Data:', walletData);
         if (walletData) {
           const wallet = JSON.parse(walletData);
           setBalance(wallet.balance || 0);
+        } else {
+          // Initialize wallet if not exists
+          const initialWallet = { balance: 1000 }; // Default ₹1000 for testing
+          await AsyncStorage.setItem(`WALLET_${user.email}`, JSON.stringify(initialWallet));
+          setBalance(1000);
         }
       }
     } catch (error) {
@@ -43,53 +54,98 @@ export default function PayScreen() {
     }
   };
 
+
   const merchants = Object.entries(MERCHANT_CATEGORIES).map(([id, name]) => ({
     id,
     name,
-    icon: id === 'CANTEEN_01' ? 'restaurant' :
-          id === 'LIBRARY_01' ? 'book' :
-          id === 'STORE_01' ? 'storefront' : 'cafe',
+    icon: id.includes('CAFE') ? 'restaurant' :
+          id.includes('LIBRARY') ? 'book' :
+          id.includes('STATIONARY') ? 'storefront' : 'cafe',
   }));
 
-  const handleGenerateQR = () => {
-    const payAmount = parseFloat(amount);
 
+  const handleGenerateQR = () => {
+    console.log('🔵 === Generate QR Button Pressed ===');
+    console.log('👤 User:', user);
+    console.log('💰 Amount entered:', amount);
+    console.log('🏪 Selected Merchant ID:', selectedMerchant);
+    console.log('💵 Current Balance:', balance);
+
+    const payAmount = parseFloat(amount);
+    console.log('💵 Parsed Amount:', payAmount, '| Type:', typeof payAmount);
+
+    // Validation 1: Merchant selected
     if (!selectedMerchant) {
+      console.log('❌ Validation Failed: No merchant selected');
       Alert.alert('Select Merchant', 'Please select a merchant to pay');
       return;
     }
 
-    if (!payAmount || payAmount <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid amount');
+    // Validation 2: Valid amount
+    if (!amount || amount.trim() === '') {
+      console.log('❌ Validation Failed: Amount is empty');
+      Alert.alert('Invalid Amount', 'Please enter an amount');
       return;
     }
 
+    if (isNaN(payAmount) || payAmount <= 0) {
+      console.log('❌ Validation Failed: Amount is not a valid number or <= 0');
+      Alert.alert('Invalid Amount', 'Please enter a valid amount greater than 0');
+      return;
+    }
+
+    // Validation 3: Sufficient balance
     if (payAmount > balance) {
+      console.log('❌ Validation Failed: Insufficient balance');
       Alert.alert('Insufficient Balance', `You only have ₹${balance.toFixed(2)} in your wallet`);
       return;
     }
 
+    console.log('✅ All validations passed! Generating QR...');
+
     // Generate unique transaction ID
     const transactionId = `TXN${Date.now()}`;
+
+    // Extract student info with multiple fallbacks
+    const studentId = user?.id || user?.studentId || user?.userId || user?._id || 'UNKNOWN_ID';
+    const studentName = user?.name || user?.fullName || user?.username || 'Student';
+    const studentEmail = user?.email || 'unknown@email.com';
+
+    console.log('📋 Extracted User Info:');
+    console.log('  - Student ID:', studentId);
+    console.log('  - Student Name:', studentName);
+    console.log('  - Student Email:', studentEmail);
 
     // Create QR data with all payment info
     const paymentData = {
       type: 'payment',
       transactionId: transactionId,
-      studentId: user?.studentId,
-      studentName: user?.name,
-      studentEmail: user?.email,
+      studentId: studentId,
+      studentName: studentName,
+      studentEmail: studentEmail,
       merchantId: selectedMerchant,
       merchantName: MERCHANT_CATEGORIES[selectedMerchant],
       amount: payAmount,
       timestamp: new Date().toISOString(),
     };
 
-    setQrData(JSON.stringify(paymentData));
+    console.log('📦 Payment Data Created:', JSON.stringify(paymentData, null, 2));
+
+    const qrString = JSON.stringify(paymentData);
+    console.log('🔗 QR String Length:', qrString.length);
+
+    // Update state
+    setQrData(qrString);
     setQrGenerated(true);
+    
+    console.log('✅ QR Generation Complete! State updated.');
+    console.log('   - qrGenerated will be:', true);
+    console.log('   - qrData length:', qrString.length);
   };
 
+
   const handleReset = () => {
+    console.log('🔄 Resetting QR generation');
     setAmount('');
     setSelectedMerchant('');
     setQrGenerated(false);
@@ -97,10 +153,30 @@ export default function PayScreen() {
     loadBalance();
   };
 
+
   const quickAmounts = [50, 100, 200, 500];
 
-  if (qrGenerated) {
-    const paymentInfo = JSON.parse(qrData);
+
+  // Debug state changes
+  useEffect(() => {
+    console.log('📊 State Update - qrGenerated:', qrGenerated, '| qrData length:', qrData.length);
+  }, [qrGenerated, qrData]);
+
+
+  // QR Generated View
+  if (qrGenerated && qrData) {
+    console.log('🖼️ Rendering QR Code View');
+    
+    let paymentInfo;
+    try {
+      paymentInfo = JSON.parse(qrData);
+      console.log('✅ QR Data parsed successfully:', paymentInfo);
+    } catch (error) {
+      console.error('❌ QR Parse Error:', error);
+      Alert.alert('Error', 'Failed to parse payment data. Please try again.');
+      handleReset();
+      return null;
+    }
     
     return (
       <ScrollView style={styles.container}>
@@ -111,6 +187,7 @@ export default function PayScreen() {
             <Ionicons name="close" size={24} color="#fff" />
           </TouchableOpacity>
         </View>
+
 
         {/* QR Code Display */}
         <View style={styles.qrCard}>
@@ -123,10 +200,12 @@ export default function PayScreen() {
             />
           </View>
 
+
           <View style={styles.paymentInfo}>
             <Text style={styles.amountLabel}>Amount to Pay</Text>
-            <Text style={styles.amountValue}>₹{paymentInfo.amount}</Text>
+            <Text style={styles.amountValue}>₹{paymentInfo.amount.toFixed(2)}</Text>
           </View>
+
 
           <View style={styles.merchantInfo}>
             <View style={styles.merchantIconSmall}>
@@ -142,6 +221,7 @@ export default function PayScreen() {
             </View>
           </View>
 
+
           <View style={styles.studentInfo}>
             <View style={styles.studentAvatar}>
               <Ionicons name="person" size={24} color="#fff" />
@@ -152,6 +232,7 @@ export default function PayScreen() {
             </View>
           </View>
         </View>
+
 
         {/* Instructions */}
         <View style={styles.instructionsCard}>
@@ -165,19 +246,24 @@ export default function PayScreen() {
           </View>
         </View>
 
+
         {/* Transaction Details */}
         <View style={styles.detailsCard}>
           <Text style={styles.detailsTitle}>Transaction Details</Text>
           
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Transaction ID</Text>
-            <Text style={styles.detailValue}>{paymentInfo.transactionId}</Text>
+            <Text style={[styles.detailValue, styles.detailValueSmall]} numberOfLines={1}>
+              {paymentInfo.transactionId}
+            </Text>
           </View>
+
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Current Balance</Text>
             <Text style={styles.detailValue}>₹{balance.toFixed(2)}</Text>
           </View>
+
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Balance After Payment</Text>
@@ -186,13 +272,19 @@ export default function PayScreen() {
             </Text>
           </View>
 
+
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Created At</Text>
             <Text style={styles.detailValue}>
-              {new Date(paymentInfo.timestamp).toLocaleTimeString()}
+              {new Date(paymentInfo.timestamp).toLocaleTimeString('en-IN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+              })}
             </Text>
           </View>
         </View>
+
 
         {/* Actions */}
         <View style={styles.actions}>
@@ -201,12 +293,18 @@ export default function PayScreen() {
             <Text style={styles.resetButtonText}>Generate New QR</Text>
           </TouchableOpacity>
         </View>
+        
+        <View style={{ height: 40 }} />
       </ScrollView>
     );
   }
 
+
+  // Payment Form View
+  console.log('📝 Rendering Payment Form');
+  
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       {/* Header */}
       <View style={styles.header}>
         <View>
@@ -214,6 +312,7 @@ export default function PayScreen() {
           <Text style={styles.subtitle}>Balance: ₹{balance.toFixed(2)}</Text>
         </View>
       </View>
+
 
       {/* Amount Section */}
       <View style={styles.section}>
@@ -224,11 +323,21 @@ export default function PayScreen() {
             style={styles.amountInput}
             placeholder="0"
             value={amount}
-            onChangeText={setAmount}
-            keyboardType="numeric"
+            onChangeText={(text) => {
+              // Only allow numbers and decimal point
+              const cleaned = text.replace(/[^0-9.]/g, '');
+              // Prevent multiple decimal points
+              const parts = cleaned.split('.');
+              const formatted = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : cleaned;
+              setAmount(formatted);
+              console.log('💰 Amount changed to:', formatted);
+            }}
+            keyboardType="decimal-pad"
             placeholderTextColor={colors.textLight}
+            maxLength={10}
           />
         </View>
+
 
         {/* Quick Amount Buttons */}
         <View style={styles.quickAmounts}>
@@ -239,7 +348,11 @@ export default function PayScreen() {
                 styles.quickBtn,
                 amount === amt.toString() && styles.quickBtnActive,
               ]}
-              onPress={() => setAmount(amt.toString())}
+              onPress={() => {
+                setAmount(amt.toString());
+                console.log('💰 Quick amount selected:', amt);
+              }}
+              activeOpacity={0.7}
             >
               <Text
                 style={[
@@ -254,6 +367,7 @@ export default function PayScreen() {
         </View>
       </View>
 
+
       {/* Select Merchant */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Select Merchant</Text>
@@ -265,7 +379,11 @@ export default function PayScreen() {
                 styles.merchantCard,
                 selectedMerchant === merchant.id && styles.merchantCardActive,
               ]}
-              onPress={() => setSelectedMerchant(merchant.id)}
+              onPress={() => {
+                setSelectedMerchant(merchant.id);
+                console.log('🏪 Merchant selected:', merchant.id, '-', merchant.name);
+              }}
+              activeOpacity={0.7}
             >
               <View style={[
                 styles.merchantIcon,
@@ -291,22 +409,34 @@ export default function PayScreen() {
         </View>
       </View>
 
+
       {/* Generate QR Button */}
       <View style={styles.section}>
         <TouchableOpacity
           style={[
             styles.generateButton,
-            (!amount || !selectedMerchant) && styles.generateButtonDisabled,
+            (!amount || !selectedMerchant || parseFloat(amount) <= 0) && styles.generateButtonDisabled,
           ]}
           onPress={handleGenerateQR}
-          disabled={!amount || !selectedMerchant}
+          disabled={!amount || !selectedMerchant || parseFloat(amount) <= 0}
+          activeOpacity={0.7}
         >
           <Ionicons name="qr-code" size={24} color="#fff" />
           <Text style={styles.generateButtonText}>
             Generate Payment QR
           </Text>
         </TouchableOpacity>
+        
+        {/* Debug Info (Remove in production) */}
+        {__DEV__ && (
+          <View style={styles.debugInfo}>
+            <Text style={styles.debugText}>
+              Debug: Amount={amount} | Merchant={selectedMerchant} | Valid={amount && selectedMerchant && parseFloat(amount) > 0 ? 'Yes' : 'No'}
+            </Text>
+          </View>
+        )}
       </View>
+
 
       {/* Info Card */}
       <View style={styles.infoCardBottom}>
@@ -322,9 +452,12 @@ export default function PayScreen() {
           </Text>
         </View>
       </View>
+      
+      <View style={{ height: 40 }} />
     </ScrollView>
   );
 }
+
 
 const getStyles = (colors: any) => StyleSheet.create({
   container: {
@@ -464,11 +597,25 @@ const getStyles = (colors: any) => StyleSheet.create({
   },
   generateButtonDisabled: {
     backgroundColor: colors.textLight,
+    opacity: 0.5,
   },
   generateButtonText: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#fff',
+  },
+  debugInfo: {
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: colors.card,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  debugText: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    fontFamily: 'monospace',
   },
   infoCardBottom: {
     flexDirection: 'row',
@@ -625,6 +772,7 @@ const getStyles = (colors: any) => StyleSheet.create({
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -632,11 +780,17 @@ const getStyles = (colors: any) => StyleSheet.create({
   detailLabel: {
     fontSize: 13,
     color: colors.textLight,
+    flex: 1,
   },
   detailValue: {
     fontSize: 13,
     fontWeight: '600',
     color: colors.text,
+    textAlign: 'right',
+  },
+  detailValueSmall: {
+    fontSize: 11,
+    flex: 1,
   },
   actions: {
     padding: 20,
