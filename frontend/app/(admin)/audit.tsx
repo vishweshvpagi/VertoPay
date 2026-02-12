@@ -8,12 +8,12 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAdmin } from '../../hooks/useAdmin';
-import { COLORS } from '../../constants/Config';
+import { useAdmin, useTheme } from '../../hooks';
 
 export default function AuditScreen() {
   const { getAdminActions } = useAdmin();
-  
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const [actions, setActions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'BLOCK_USER' | 'UNBLOCK_USER' | 'REVERSE_TRANSACTION' | 'MARK_FRAUD' | 'CLEAR_FRAUD'>('all');
@@ -73,17 +73,17 @@ export default function AuditScreen() {
   const getActionIcon = (actionType: string) => {
     switch (actionType) {
       case 'BLOCK_USER':
-        return { name: 'ban', color: COLORS.danger };
+        return { name: 'ban', color: colors.danger };
       case 'UNBLOCK_USER':
-        return { name: 'checkmark-circle', color: COLORS.success };
+        return { name: 'checkmark-circle', color: colors.success };
       case 'REVERSE_TRANSACTION':
-        return { name: 'refresh', color: COLORS.warning };
+        return { name: 'refresh', color: colors.warning };
       case 'MARK_FRAUD':
-        return { name: 'warning', color: COLORS.danger };
+        return { name: 'warning', color: colors.danger };
       case 'CLEAR_FRAUD':
-        return { name: 'shield-checkmark', color: COLORS.success };
+        return { name: 'shield-checkmark', color: colors.success };
       default:
-        return { name: 'information-circle', color: COLORS.primary };
+        return { name: 'information-circle', color: colors.primary };
     }
   };
 
@@ -115,20 +115,20 @@ export default function AuditScreen() {
 
           {item.targetEmail && (
             <View style={styles.targetInfo}>
-              <Ionicons name="person" size={14} color={COLORS.textLight} />
+              <Ionicons name="person" size={14} color={colors.textLight} />
               <Text style={styles.actionTarget}>User: {item.targetEmail}</Text>
             </View>
           )}
 
           {item.targetTransactionId && (
             <View style={styles.targetInfo}>
-              <Ionicons name="receipt" size={14} color={COLORS.textLight} />
+              <Ionicons name="receipt" size={14} color={colors.textLight} />
               <Text style={styles.actionTarget}>Txn: {item.targetTransactionId}</Text>
             </View>
           )}
 
           <View style={styles.reasonContainer}>
-            <Ionicons name="document-text" size={14} color={COLORS.primary} />
+            <Ionicons name="document-text" size={14} color={colors.primary} />
             <Text style={styles.actionReason}>{item.reason}</Text>
           </View>
 
@@ -182,7 +182,7 @@ export default function AuditScreen() {
           style={[styles.filterChip, filterType === 'BLOCK_USER' && styles.filterChipActive]}
           onPress={() => setFilterType('BLOCK_USER')}
         >
-          <Ionicons name="ban" size={14} color={filterType === 'BLOCK_USER' ? '#fff' : COLORS.danger} />
+          <Ionicons name="ban" size={14} color={filterType === 'BLOCK_USER' ? '#fff' : colors.danger} />
           <Text style={[styles.filterText, filterType === 'BLOCK_USER' && styles.filterTextActive]}>
             Blocks
           </Text>
@@ -192,7 +192,7 @@ export default function AuditScreen() {
           style={[styles.filterChip, filterType === 'REVERSE_TRANSACTION' && styles.filterChipActive]}
           onPress={() => setFilterType('REVERSE_TRANSACTION')}
         >
-          <Ionicons name="refresh" size={14} color={filterType === 'REVERSE_TRANSACTION' ? '#fff' : COLORS.warning} />
+          <Ionicons name="refresh" size={14} color={filterType === 'REVERSE_TRANSACTION' ? '#fff' : colors.warning} />
           <Text style={[styles.filterText, filterType === 'REVERSE_TRANSACTION' && styles.filterTextActive]}>
             Reversals
           </Text>
@@ -202,7 +202,7 @@ export default function AuditScreen() {
           style={[styles.filterChip, filterType === 'MARK_FRAUD' && styles.filterChipActive]}
           onPress={() => setFilterType('MARK_FRAUD')}
         >
-          <Ionicons name="warning" size={14} color={filterType === 'MARK_FRAUD' ? '#fff' : COLORS.danger} />
+          <Ionicons name="warning" size={14} color={filterType === 'MARK_FRAUD' ? '#fff' : colors.danger} />
           <Text style={[styles.filterText, filterType === 'MARK_FRAUD' && styles.filterTextActive]}>
             Fraud
           </Text>
@@ -217,7 +217,7 @@ export default function AuditScreen() {
         refreshControl={<RefreshControl refreshing={loading} onRefresh={loadAuditLog} />}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="document-text-outline" size={64} color={COLORS.textLight} />
+            <Ionicons name="document-text-outline" size={64} color={colors.textLight} />
             <Text style={styles.emptyText}>No admin actions yet</Text>
             <Text style={styles.emptySubtext}>Actions will appear here as they occur</Text>
           </View>
@@ -227,24 +227,24 @@ export default function AuditScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
   header: {
     padding: 20,
     paddingTop: 60,
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
   },
   subtitle: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 4,
   },
   statsContainer: {
@@ -254,21 +254,21 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     padding: 12,
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   statNumber: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
   },
   statLabel: {
     fontSize: 11,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 4,
   },
   filterContainer: {
@@ -284,18 +284,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     gap: 4,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   filterChipActive: {
-    backgroundColor: COLORS.admin,
-    borderColor: COLORS.admin,
+    backgroundColor: colors.admin,
+    borderColor: colors.admin,
   },
   filterText: {
     fontSize: 12,
-    color: COLORS.text,
+    color: colors.text,
     fontWeight: '500',
   },
   filterTextActive: {
@@ -307,12 +307,12 @@ const styles = StyleSheet.create({
   },
   actionCard: {
     flexDirection: 'row',
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     padding: 14,
     borderRadius: 16,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   actionIconContainer: {
     width: 48,
@@ -334,16 +334,16 @@ const styles = StyleSheet.create({
   actionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
   },
   actionTime: {
     fontSize: 12,
-    color: COLORS.textLight,
+    color: colors.textLight,
     fontWeight: '600',
   },
   actionAdmin: {
     fontSize: 13,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginBottom: 6,
   },
   targetInfo: {
@@ -354,11 +354,11 @@ const styles = StyleSheet.create({
   },
   actionTarget: {
     fontSize: 12,
-    color: COLORS.textLight,
+    color: colors.textLight,
   },
   reasonContainer: {
     flexDirection: 'row',
-    backgroundColor: COLORS.primary + '10',
+    backgroundColor: colors.primary + '10',
     padding: 8,
     borderRadius: 8,
     marginTop: 6,
@@ -369,12 +369,12 @@ const styles = StyleSheet.create({
   actionReason: {
     flex: 1,
     fontSize: 12,
-    color: COLORS.text,
+    color: colors.text,
     lineHeight: 18,
   },
   actionDate: {
     fontSize: 11,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 4,
   },
   emptyContainer: {
@@ -384,13 +384,13 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 18,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 16,
     fontWeight: '600',
   },
   emptySubtext: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 8,
   },
 });

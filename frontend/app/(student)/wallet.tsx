@@ -11,11 +11,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
-import { COLORS } from '../../constants/Config';
+import { useTheme } from '../../hooks/useTheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function WalletScreen() {
   const { user } = useAuth();
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const [balance, setBalance] = useState(0);
   const [rechargeAmount, setRechargeAmount] = useState('');
   const [loading, setLoading] = useState(false);
@@ -118,7 +120,7 @@ export default function WalletScreen() {
         <Text style={styles.balanceLabel}>Available Balance</Text>
         <Text style={styles.balanceAmount}>₹{balance.toFixed(2)}</Text>
         <View style={styles.balanceInfo}>
-          <Ionicons name="shield-checkmark" size={16} color={COLORS.success} />
+          <Ionicons name="shield-checkmark" size={16} color={colors.success} />
           <Text style={styles.balanceInfoText}>Secure Wallet</Text>
         </View>
       </View>
@@ -135,7 +137,7 @@ export default function WalletScreen() {
             value={rechargeAmount}
             onChangeText={setRechargeAmount}
             keyboardType="numeric"
-            placeholderTextColor={COLORS.textLight}
+            placeholderTextColor={colors.textLight}
           />
         </View>
 
@@ -182,7 +184,7 @@ export default function WalletScreen() {
       {/* Info Cards */}
       <View style={styles.section}>
         <View style={styles.infoCard}>
-          <Ionicons name="information-circle" size={24} color={COLORS.primary} />
+          <Ionicons name="information-circle" size={24} color={colors.primary} />
           <View style={styles.infoContent}>
             <Text style={styles.infoTitle}>Instant Recharge</Text>
             <Text style={styles.infoText}>Money is added to your wallet instantly</Text>
@@ -190,7 +192,7 @@ export default function WalletScreen() {
         </View>
 
         <View style={styles.infoCard}>
-          <Ionicons name="shield-checkmark" size={24} color={COLORS.success} />
+          <Ionicons name="shield-checkmark" size={24} color={colors.success} />
           <View style={styles.infoContent}>
             <Text style={styles.infoTitle}>100% Secure</Text>
             <Text style={styles.infoText}>All transactions are encrypted and secure</Text>
@@ -198,7 +200,7 @@ export default function WalletScreen() {
         </View>
 
         <View style={styles.infoCard}>
-          <Ionicons name="time" size={24} color={COLORS.warning} />
+          <Ionicons name="time" size={24} color={colors.warning} />
           <View style={styles.infoContent}>
             <Text style={styles.infoTitle}>No Expiry</Text>
             <Text style={styles.infoText}>Wallet balance never expires</Text>
@@ -209,15 +211,15 @@ export default function WalletScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
   header: {
     padding: 20,
     paddingTop: 60,
-    backgroundColor: COLORS.student,
+    backgroundColor: colors.student,
   },
   title: {
     fontSize: 28,
@@ -225,23 +227,23 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   balanceCard: {
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     margin: 20,
     padding: 24,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
     alignItems: 'center',
   },
   balanceLabel: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginBottom: 8,
   },
   balanceAmount: {
     fontSize: 48,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: 12,
   },
   balanceInfo: {
@@ -251,7 +253,7 @@ const styles = StyleSheet.create({
   },
   balanceInfoText: {
     fontSize: 12,
-    color: COLORS.success,
+    color: colors.success,
     fontWeight: '600',
   },
   section: {
@@ -261,29 +263,29 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: 16,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     borderRadius: 12,
     paddingHorizontal: 16,
     borderWidth: 2,
-    borderColor: COLORS.student,
+    borderColor: colors.student,
   },
   rupeeSymbol: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
     marginRight: 8,
   },
   input: {
     flex: 1,
     fontSize: 24,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
     padding: 16,
   },
   quickAmounts: {
@@ -294,21 +296,21 @@ const styles = StyleSheet.create({
   },
   quickBtn: {
     width: '31%',
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     padding: 14,
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   quickBtnActive: {
-    backgroundColor: COLORS.student,
-    borderColor: COLORS.student,
+    backgroundColor: colors.student,
+    borderColor: colors.student,
   },
   quickBtnText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text,
+    color: colors.text,
   },
   quickBtnTextActive: {
     color: '#fff',
@@ -317,12 +319,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.student,
+    backgroundColor: colors.student,
     padding: 18,
     borderRadius: 12,
     marginTop: 24,
     gap: 10,
-    shadowColor: COLORS.student,
+    shadowColor: colors.student,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -335,12 +337,12 @@ const styles = StyleSheet.create({
   },
   infoCard: {
     flexDirection: 'row',
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   infoContent: {
     flex: 1,
@@ -349,11 +351,11 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: 4,
   },
   infoText: {
     fontSize: 12,
-    color: COLORS.textLight,
+    color: colors.textLight,
   },
 });

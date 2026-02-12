@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../../constants/Config';
+import { useTheme } from '../../hooks/useTheme';
 
 interface BalanceCardProps {
   balance: number;
@@ -14,6 +14,8 @@ export default function BalanceCard({
   onRecharge,
   showRechargeButton = true,
 }: BalanceCardProps) {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   return (
     <View style={styles.container}>
       <Text style={styles.label}>Available Balance</Text>
@@ -29,9 +31,9 @@ export default function BalanceCard({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   container: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.primary,
     padding: 24,
     borderRadius: 20,
     marginVertical: 16,

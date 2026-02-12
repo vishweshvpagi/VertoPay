@@ -10,11 +10,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
-import { COLORS, MERCHANT_CATEGORIES } from '../../constants/Config';
+import { useTheme } from '../../hooks/useTheme';
+import { MERCHANT_CATEGORIES } from '../../constants/Config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function HistoryScreen() {
   const { user } = useAuth();
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'payment' | 'recharge'>('all');
@@ -64,12 +67,12 @@ export default function HistoryScreen() {
     >
       <View style={[
         styles.txnIcon,
-        { backgroundColor: item.type === 'payment' ? COLORS.danger + '20' : COLORS.success + '20' }
+        { backgroundColor: item.type === 'payment' ? colors.danger + '20' : colors.success + '20' }
       ]}>
         <Ionicons
           name={item.type === 'payment' ? 'arrow-up' : 'arrow-down'}
           size={24}
-          color={item.type === 'payment' ? COLORS.danger : COLORS.success}
+          color={item.type === 'payment' ? colors.danger : colors.success}
         />
       </View>
       <View style={styles.txnInfo}>
@@ -84,17 +87,17 @@ export default function HistoryScreen() {
       <View style={styles.txnRight}>
         <Text style={[
           styles.txnAmount,
-          { color: item.type === 'payment' ? COLORS.danger : COLORS.success }
+          { color: item.type === 'payment' ? colors.danger : colors.success }
         ]}>
           {item.type === 'payment' ? '-' : '+'}₹{item.amount}
         </Text>
         <View style={[
           styles.statusBadge,
-          { backgroundColor: item.status === 'completed' ? COLORS.success + '20' : COLORS.warning + '20' }
+          { backgroundColor: item.status === 'completed' ? colors.success + '20' : colors.warning + '20' }
         ]}>
           <Text style={[
             styles.statusText,
-            { color: item.status === 'completed' ? COLORS.success : COLORS.warning }
+            { color: item.status === 'completed' ? colors.success : colors.warning }
           ]}>
             {item.status.toUpperCase()}
           </Text>
@@ -129,7 +132,7 @@ export default function HistoryScreen() {
           <Ionicons 
             name="arrow-up" 
             size={14} 
-            color={filterType === 'payment' ? '#fff' : COLORS.danger} 
+            color={filterType === 'payment' ? '#fff' : colors.danger} 
           />
           <Text style={[styles.filterText, filterType === 'payment' && styles.filterTextActive]}>
             Payments
@@ -143,7 +146,7 @@ export default function HistoryScreen() {
           <Ionicons 
             name="arrow-down" 
             size={14} 
-            color={filterType === 'recharge' ? '#fff' : COLORS.success} 
+            color={filterType === 'recharge' ? '#fff' : colors.success} 
           />
           <Text style={[styles.filterText, filterType === 'recharge' && styles.filterTextActive]}>
             Recharges
@@ -160,7 +163,7 @@ export default function HistoryScreen() {
         refreshControl={<RefreshControl refreshing={loading} onRefresh={loadTransactions} />}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Ionicons name="receipt-outline" size={64} color={COLORS.textLight} />
+            <Ionicons name="receipt-outline" size={64} color={colors.textLight} />
             <Text style={styles.emptyText}>No transactions found</Text>
             <Text style={styles.emptySubtext}>Your transactions will appear here</Text>
           </View>
@@ -179,7 +182,7 @@ export default function HistoryScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Transaction Details</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color={COLORS.text} />
+                <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
 
@@ -187,7 +190,7 @@ export default function HistoryScreen() {
               <>
                 <View style={[
                   styles.modalIcon,
-                  { backgroundColor: selectedTxn.type === 'payment' ? COLORS.danger : COLORS.success }
+                  { backgroundColor: selectedTxn.type === 'payment' ? colors.danger : colors.success }
                 ]}>
                   <Ionicons
                     name={selectedTxn.type === 'payment' ? 'arrow-up' : 'arrow-down'}
@@ -198,7 +201,7 @@ export default function HistoryScreen() {
 
                 <Text style={[
                   styles.modalAmount,
-                  { color: selectedTxn.type === 'payment' ? COLORS.danger : COLORS.success }
+                  { color: selectedTxn.type === 'payment' ? colors.danger : colors.success }
                 ]}>
                   {selectedTxn.type === 'payment' ? '-' : '+'}₹{selectedTxn.amount}
                 </Text>
@@ -233,11 +236,11 @@ export default function HistoryScreen() {
                   <Text style={styles.detailLabel}>Status</Text>
                   <View style={[
                     styles.detailStatusBadge,
-                    { backgroundColor: selectedTxn.status === 'completed' ? COLORS.success + '20' : COLORS.warning + '20' }
+                    { backgroundColor: selectedTxn.status === 'completed' ? colors.success + '20' : colors.warning + '20' }
                   ]}>
                     <Text style={[
                       styles.detailStatusText,
-                      { color: selectedTxn.status === 'completed' ? COLORS.success : COLORS.warning }
+                      { color: selectedTxn.status === 'completed' ? colors.success : colors.warning }
                     ]}>
                       {selectedTxn.status.toUpperCase()}
                     </Text>
@@ -252,15 +255,15 @@ export default function HistoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
   header: {
     padding: 20,
     paddingTop: 60,
-    backgroundColor: COLORS.student,
+    backgroundColor: colors.student,
   },
   title: {
     fontSize: 28,
@@ -283,21 +286,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     padding: 10,
     borderRadius: 12,
     gap: 6,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   filterTabActive: {
-    backgroundColor: COLORS.student,
-    borderColor: COLORS.student,
+    backgroundColor: colors.student,
+    borderColor: colors.student,
   },
   filterText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.text,
+    color: colors.text,
   },
   filterTextActive: {
     color: '#fff',
@@ -308,12 +311,12 @@ const styles = StyleSheet.create({
   },
   txnCard: {
     flexDirection: 'row',
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     padding: 14,
     borderRadius: 16,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: colors.border,
   },
   txnIcon: {
     width: 48,
@@ -329,17 +332,17 @@ const styles = StyleSheet.create({
   txnTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: 4,
   },
   txnDate: {
     fontSize: 12,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginBottom: 2,
   },
   txnId: {
     fontSize: 10,
-    color: COLORS.textLight,
+    color: colors.textLight,
     fontFamily: 'monospace',
   },
   txnRight: {
@@ -365,13 +368,13 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 18,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 16,
     fontWeight: '600',
   },
   emptySubtext: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 8,
   },
   modalOverlay: {
@@ -381,7 +384,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContent: {
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     borderRadius: 20,
     padding: 24,
   },
@@ -394,7 +397,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.text,
   },
   modalIcon: {
     width: 80,
@@ -416,16 +419,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: colors.border,
   },
   detailLabel: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: colors.textLight,
     fontWeight: '500',
   },
   detailValue: {
     fontSize: 14,
-    color: COLORS.text,
+    color: colors.text,
     fontWeight: '600',
     maxWidth: '60%',
     textAlign: 'right',

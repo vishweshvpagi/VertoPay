@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { COLORS } from "../../constants/Config";
+import { useTheme } from "../../hooks/useTheme";
 import { Transaction } from "../../contexts/WalletContext";
 
 interface TransactionItemProps {
@@ -13,6 +13,8 @@ export default function TransactionItem({
   transaction,
   showDetails = false,
 }: TransactionItemProps) {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const isDebit = transaction.amount < 0 || true; // Assuming all are debits for student app
 
   return (
@@ -21,7 +23,7 @@ export default function TransactionItem({
         <Ionicons
           name={isDebit ? "arrow-down" : "arrow-up"}
           size={24}
-          color={isDebit ? COLORS.danger : COLORS.success}
+          color={isDebit ? colors.danger : colors.success}
         />
       </View>
 
@@ -62,9 +64,9 @@ export default function TransactionItem({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   container: {
-    backgroundColor: COLORS.card,
+    backgroundColor: colors.card,
     padding: 16,
     borderRadius: 16,
     marginBottom: 12,
@@ -80,7 +82,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
@@ -94,16 +96,16 @@ const styles = StyleSheet.create({
   merchantName: {
     fontSize: 16,
     fontWeight: "600",
-    color: COLORS.text,
+    color: colors.text,
     marginBottom: 4,
   },
   date: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: colors.textLight,
   },
   transactionId: {
     fontSize: 12,
-    color: COLORS.textLight,
+    color: colors.textLight,
     marginTop: 2,
   },
   amountContainer: {
@@ -112,10 +114,10 @@ const styles = StyleSheet.create({
   amount: {
     fontSize: 18,
     fontWeight: "bold",
-    color: COLORS.success,
+    color: colors.success,
   },
   debitAmount: {
-    color: COLORS.danger,
+    color: colors.danger,
   },
   status: {
     fontSize: 12,
@@ -124,12 +126,12 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   statusCompleted: {
-    color: COLORS.success,
+    color: colors.success,
   },
   statusPending: {
-    color: COLORS.warning,
+    color: colors.warning,
   },
   statusFailed: {
-    color: COLORS.danger,
+    color: colors.danger,
   },
 });

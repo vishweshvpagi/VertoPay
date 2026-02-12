@@ -13,8 +13,11 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { COLORS } from '../../constants/Config';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
+import { useTheme } from '../../hooks/useTheme';
+import Switch from '../../components/ui/Switch';
+import { SPACING, RADIUS } from '../../constants/DesignTokens';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -23,6 +26,7 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   
   const { login } = useAuth();
+  const { colors, theme, toggleTheme } = useTheme();
   const router = useRouter();
 
   const validateEmail = (email: string): boolean => {
@@ -68,76 +72,73 @@ export default function LoginScreen() {
     }
   };
 
-  // Quick test logins
-  const quickLogin = async (role: 'student' | 'merchant' | 'admin') => {
-    const credentials = {
-      student: { email: 'student@test.com', password: 'password' },
-      merchant: { email: 'merchant@cmr.com', password: 'password' },
-      admin: { email: 'admin@cmr.com', password: 'password' },
-    };
-
-    setEmail(credentials[role].email);
-    setPassword(credentials[role].password);
-    
-    setTimeout(() => {
-      handleLogin();
-    }, 100);
-  };
+  const styles = getStyles(colors);
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-    >
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.content}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        <KeyboardAvoidingView
+          style={styles.flex1}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Dark Mode Toggle - secondary control */}
+            <View style={styles.darkModeContainer}>
+              <View style={[styles.darkModeRow, { backgroundColor: colors.card, borderColor: colors.borderLight }]}>
+                <Ionicons name={theme === 'dark' ? 'moon' : 'sunny'} size={20} color={colors.textSecondary} />
+                <Text style={[styles.darkModeLabel, { color: colors.textSecondary }]}>Dark Mode</Text>
+                <Switch value={theme === 'dark'} onValueChange={() => toggleTheme()} />
+              </View>
+            </View>
+
+            <View style={styles.content}>
           {/* Premium Logo */}
           <View style={styles.logoContainer}>
-            <View style={styles.logoGradient}>
+            <View style={[styles.logoGradient, { backgroundColor: colors.primary }]}>
               <View style={styles.logo}>
                 <Ionicons name="wallet" size={52} color="#fff" />
               </View>
             </View>
-            <Text style={styles.title}>VertoPay</Text>
-            <Text style={styles.subtitle}>Campus Digital Payment System</Text>
+            <Text style={[styles.title, { color: colors.text }]}>VertoPay</Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Campus Digital Payment System</Text>
           </View>
 
           {/* Premium Input Fields */}
           <View style={styles.form}>
-            <View style={styles.inputContainer}>
-              <View style={styles.inputIconContainer}>
-                <Ionicons name="mail-outline" size={22} color={COLORS.primary} />
+            <View style={[styles.inputContainer, { backgroundColor: colors.card, borderColor: colors.borderLight }]}>
+              <View style={[styles.inputIconContainer, { backgroundColor: colors.primary + '10' }]}>
+                <Ionicons name="mail-outline" size={22} color={colors.primary} />
               </View>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { color: colors.text }]}
                 placeholder="Email"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                placeholderTextColor={COLORS.textLight}
+                placeholderTextColor={colors.textLight}
                 autoCorrect={false}
                 autoComplete="email"
                 textContentType="emailAddress"
               />
             </View>
 
-            <View style={styles.inputContainer}>
-              <View style={styles.inputIconContainer}>
-                <Ionicons name="lock-closed-outline" size={22} color={COLORS.primary} />
+            <View style={[styles.inputContainer, { backgroundColor: colors.card, borderColor: colors.borderLight }]}>
+              <View style={[styles.inputIconContainer, { backgroundColor: colors.primary + '10' }]}>
+                <Ionicons name="lock-closed-outline" size={22} color={colors.primary} />
               </View>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { color: colors.text }]}
                 placeholder="Password"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
-                placeholderTextColor={COLORS.textLight}
+                placeholderTextColor={colors.textLight}
                 autoCorrect={false}
                 autoComplete="password"
                 textContentType="password"
@@ -150,13 +151,13 @@ export default function LoginScreen() {
                 <Ionicons 
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'} 
                   size={22} 
-                  color={COLORS.textSecondary} 
+                  color={colors.textSecondary} 
                 />
               </TouchableOpacity>
             </View>
 
             <TouchableOpacity
-              style={[styles.button, loading && styles.buttonDisabled]}
+              style={[styles.button, { backgroundColor: colors.primary }, loading && styles.buttonDisabled]}
               onPress={handleLogin}
               disabled={loading}
               activeOpacity={0.8}
@@ -171,97 +172,78 @@ export default function LoginScreen() {
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity 
-              onPress={() => router.push('/(auth)/register')} 
+            <TouchableOpacity
+              onPress={() => router.push('/(auth)/register')}
               style={styles.registerLink}
               activeOpacity={0.7}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
-              <Text style={styles.link}>
-                Don't have an account? <Text style={styles.linkBold}>Register</Text>
+              <Text style={[styles.link, { color: colors.textSecondary }]}>
+                Don't have an account? <Text style={[styles.linkBold, { color: colors.primary }]}>Register</Text>
               </Text>
             </TouchableOpacity>
           </View>
-
-          {/* Quick Test Login */}
-          <View style={styles.quickLogin}>
-            <View style={styles.quickLoginDivider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.quickLoginTitle}>Quick Test Login</Text>
-              <View style={styles.dividerLine} />
-            </View>
-            <View style={styles.quickLoginButtons}>
-              <TouchableOpacity
-                style={[styles.quickBtn, styles.quickBtnStudent]}
-                onPress={() => quickLogin('student')}
-                disabled={loading}
-                activeOpacity={0.7}
-              >
-                <View style={styles.quickBtnIconContainer}>
-                  <Ionicons name="school" size={22} color="#fff" />
-                </View>
-                <Text style={styles.quickBtnText}>Student</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.quickBtn, styles.quickBtnMerchant]}
-                onPress={() => quickLogin('merchant')}
-                disabled={loading}
-                activeOpacity={0.7}
-              >
-                <View style={styles.quickBtnIconContainer}>
-                  <Ionicons name="storefront" size={22} color="#fff" />
-                </View>
-                <Text style={styles.quickBtnText}>Merchant</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.quickBtn, styles.quickBtnAdmin]}
-                onPress={() => quickLogin('admin')}
-                disabled={loading}
-                activeOpacity={0.7}
-              >
-                <View style={styles.quickBtnIconContainer}>
-                  <Ionicons name="shield-checkmark" size={22} color="#fff" />
-                </View>
-                <Text style={styles.quickBtnText}>Admin</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+  },
+  safeArea: {
+    flex: 1,
+  },
+  flex1: {
+    flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
   },
+  darkModeContainer: {
+    padding: SPACING.xl,
+    paddingTop: SPACING.sm,
+    alignItems: 'flex-end',
+  },
+  darkModeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  darkModeLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
   content: {
     flex: 1,
-    padding: 24,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    padding: SPACING.xl,
+    paddingTop: SPACING.lg,
     justifyContent: 'center',
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: SPACING.xxxl,
   },
   logoGradient: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: SPACING.lg,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.primary,
+        shadowColor: colors.primary,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.4,
         shadowRadius: 16,
@@ -281,31 +263,27 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 42,
     fontWeight: '700',
-    color: COLORS.text,
     marginBottom: 8,
     letterSpacing: -1,
   },
   subtitle: {
     fontSize: 16,
-    color: COLORS.textSecondary,
     fontWeight: '500',
     letterSpacing: 0.3,
   },
   form: {
-    gap: 20,
-    marginBottom: 8,
+    gap: SPACING.lg,
+    marginBottom: SPACING.xs,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.card,
-    borderRadius: 18,
+    borderRadius: RADIUS.lg,
     paddingHorizontal: 4,
     borderWidth: 1.5,
-    borderColor: COLORS.borderLight,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadow,
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.08,
         shadowRadius: 8,
@@ -322,14 +300,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginLeft: 4,
     borderRadius: 12,
-    backgroundColor: COLORS.primary + '10',
   },
   input: {
     flex: 1,
     padding: 16,
     paddingLeft: 12,
     fontSize: 16,
-    color: COLORS.text,
     fontWeight: '500',
   },
   eyeIcon: {
@@ -340,15 +316,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.primary,
-    paddingVertical: 18,
-    paddingHorizontal: 24,
-    borderRadius: 16,
-    marginTop: 8,
-    gap: 10,
+    paddingVertical: SPACING.lg,
+    paddingHorizontal: SPACING.xl,
+    borderRadius: RADIUS.lg,
+    marginTop: SPACING.xs,
+    gap: SPACING.sm,
+    minHeight: 52,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.primary,
+        shadowColor: colors.primary,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.35,
         shadowRadius: 12,
@@ -370,79 +346,15 @@ const styles = StyleSheet.create({
   registerLink: {
     marginTop: 12,
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 12,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   link: {
     fontSize: 15,
-    color: COLORS.textSecondary,
     fontWeight: '500',
   },
   linkBold: {
-    color: COLORS.primary,
     fontWeight: '700',
-  },
-  quickLogin: {
-    marginTop: 32,
-    paddingTop: 32,
-  },
-  quickLoginDivider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: COLORS.borderLight,
-  },
-  quickLoginTitle: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    marginHorizontal: 16,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  quickLoginButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  quickBtn: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    borderRadius: 18,
-    gap: 8,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
-  },
-  quickBtnStudent: {
-    backgroundColor: COLORS.student,
-  },
-  quickBtnMerchant: {
-    backgroundColor: COLORS.merchant,
-  },
-  quickBtnAdmin: {
-    backgroundColor: COLORS.admin,
-  },
-  quickBtnIconContainer: {
-    marginBottom: 4,
-  },
-  quickBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#fff',
-    letterSpacing: 0.3,
   },
 });
