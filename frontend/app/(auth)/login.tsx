@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
     ActivityIndicator,
@@ -55,16 +55,10 @@ export default function LoginScreen() {
     try {
       const userData = await login(email.toLowerCase().trim(), password);
 
-      // Wait a bit for state to update
+      // Navigate to root so index can do role-based redirect with updated auth state
       setTimeout(() => {
-        if (userData.role === 'student') {
-          router.replace('/(student)');
-        } else if (userData.role === 'merchant') {
-          router.replace('/(merchant)');
-        } else if (userData.role === 'admin') {
-          router.replace('/(admin)');
-        }
-      }, 100);
+        router.replace('/');
+      }, 50);
 
     } catch (error: any) {
       setLoading(false);
@@ -172,16 +166,17 @@ export default function LoginScreen() {
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => router.push('/(auth)/register')}
-              style={styles.registerLink}
-              activeOpacity={0.7}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
-              <Text style={[styles.link, { color: colors.textSecondary }]}>
-                Don't have an account? <Text style={[styles.linkBold, { color: colors.primary }]}>Register</Text>
-              </Text>
-            </TouchableOpacity>
+            <Link href="/(auth)/register" asChild>
+              <TouchableOpacity
+                style={styles.registerLink}
+                activeOpacity={0.7}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Text style={[styles.link, { color: colors.textSecondary }]}>
+                  Don't have an account? <Text style={[styles.linkBold, { color: colors.primary }]}>Register</Text>
+                </Text>
+              </TouchableOpacity>
+            </Link>
           </View>
         </View>
           </ScrollView>

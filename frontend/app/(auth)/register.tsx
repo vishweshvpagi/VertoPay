@@ -110,16 +110,16 @@ export default function RegisterScreen() {
 
       await register(email.toLowerCase().trim(), password, role, details);
 
+      // Navigate to root so index can do role-based redirect with updated auth state
       setTimeout(() => {
-        if (role === 'student') {
-          router.replace('/(student)');
-        } else if (role === 'merchant') {
-          router.replace('/(merchant)');
-        }
-      }, 100);
+        router.replace('/');
+      }, 50);
     } catch (error: any) {
+      const message = error?.message || error?.toString?.() || 'Something went wrong';
+      if (__DEV__ && typeof console !== 'undefined') console.error('Registration error:', error);
+      Alert.alert('Registration Failed', message);
+    } finally {
       setLoading(false);
-      Alert.alert('Registration Failed', error.message || 'Something went wrong');
     }
   };
 

@@ -60,12 +60,6 @@ export default function MerchantLayout() {
         }}
       />
       <Tabs.Screen
-        name="payment"
-        options={{
-          href: null, // Hidden from tabs
-        }}
-      />
-      <Tabs.Screen
         name="transactions"
         options={{
           href: null, // Hidden from tabs
