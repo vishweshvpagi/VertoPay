@@ -1,38 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  RefreshControl,
+  View, Text, StyleSheet, FlatList, RefreshControl, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
+import { apiRequest } from '../../utils/api';
 
 export default function HistoryScreen() {
   const { user } = useAuth();
   const { colors } = useTheme();
   const styles = getStyles(colors);
-  const [transactions, setTransactions] = useState([]);
+
+  const [transactions, setTransactions] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadTransactions();
   }, []);
 
-  const loadTransactions = async () => {
+  const loadTransactions = useCallback(async () => {
     try {
-      const walletData = await AsyncStorage.getItem(`MERCHANT_WALLET_${user.email}`);
-      if (walletData) {
-        const wallet = JSON.parse(walletData);
-        setTransactions(wallet.transactions || []);
-      }
+      // ✅ Fetch from backend
+      const data = await apiRequest<{ transactions: any[] }>('/api/transactions/history');
+      setTransactions(data.transactions || []);
     } catch (error) {
       console.error('Load transactions error:', error);
     }
-  };
+  }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -40,21 +35,37 @@ export default function HistoryScreen() {
     setRefreshing(false);
   };
 
-  const renderTransaction = ({ item }: { item: any }) => (
-    <View style={styles.transactionCard}>
-      <View style={styles.transactionIcon}>
-        <Ionicons name="arrow-down" size={20} color={colors.success} />
+  const getTimestamp = (item: any) =>
+    item.createdAt || item.timestamp || item.qrTimestamp || new Date().toISOString();
+
+  const getStudentName = (item: any) =>
+    item.student?.name || item.student_name || item.studentName || 'Unknown Student';
+
+  const getDescription = (item: any) =>
+    item.description || `Payment from ${getStudentName(item)}`;
+
+  const getAmount = (item: any) =>
+    typeof item.amount === 'number' ? item.amount : parseFloat(item.amount) || 0;
+
+  const renderTransaction = ({ item }: { item: any }) => {
+    const timestamp = getTimestamp(item);
+    return (
+      <View style={styles.transactionCard}>
+        <View style={styles.transactionIcon}>
+          <Ionicons name="arrow-down" size={20} color={colors.success} />
+        </View>
+        <View style={styles.transactionDetails}>
+          <Text style={styles.transactionStudent}>{getStudentName(item)}</Text>
+          <Text style={styles.transactionDescription}>{getDescription(item)}</Text>
+          <Text style={styles.transactionDate}>
+            {new Date(timestamp).toLocaleDateString()} •{' '}
+            {new Date(timestamp).toLocaleTimeString()}
+          </Text>
+        </View>
+        <Text style={styles.transactionAmount}>+₹{getAmount(item).toFixed(2)}</Text>
       </View>
-      <View style={styles.transactionDetails}>
-        <Text style={styles.transactionStudent}>{item.student}</Text>
-        <Text style={styles.transactionDescription}>{item.description}</Text>
-        <Text style={styles.transactionDate}>
-          {new Date(item.date).toLocaleDateString()} • {new Date(item.date).toLocaleTimeString()}
-        </Text>
-      </View>
-      <Text style={styles.transactionAmount}>+₹{item.amount.toFixed(2)}</Text>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -72,10 +83,16 @@ export default function HistoryScreen() {
         <FlatList
           data={transactions}
           renderItem={renderTransaction}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item, index) =>
+            item.transactionId || item.transaction_id || item._id || String(index)
+          }
           contentContainerStyle={styles.list}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.merchant]}
+            />
           }
         />
       )}
@@ -84,79 +101,25 @@ export default function HistoryScreen() {
 }
 
 const getStyles = (colors: any) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    padding: 24,
-    paddingTop: 60,
-    backgroundColor: colors.card,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  list: {
-    padding: 24,
-    gap: 12,
-  },
+  container: { flex: 1, backgroundColor: colors.background },
+  header: { padding: 24, paddingTop: 60, backgroundColor: colors.card },
+  headerTitle: { fontSize: 28, fontWeight: 'bold', color: colors.text },
+  list: { padding: 24, gap: 12 },
   transactionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 16,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: colors.card, borderRadius: 16, padding: 16,
   },
   transactionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 44, height: 44, borderRadius: 22,
     backgroundColor: colors.success + '20',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
+    alignItems: 'center', justifyContent: 'center', marginRight: 12,
   },
-  transactionDetails: {
-    flex: 1,
-  },
-  transactionStudent: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  transactionDescription: {
-    fontSize: 13,
-    color: colors.textLight,
-    marginBottom: 4,
-  },
-  transactionDate: {
-    fontSize: 12,
-    color: colors.textLight,
-  },
-  transactionAmount: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.success,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 48,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-    marginTop: 16,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: colors.textLight,
-    marginTop: 8,
-    textAlign: 'center',
-  },
+  transactionDetails: { flex: 1 },
+  transactionStudent: { fontSize: 16, fontWeight: '600', color: colors.text, marginBottom: 4 },
+  transactionDescription: { fontSize: 13, color: colors.textLight, marginBottom: 4 },
+  transactionDate: { fontSize: 12, color: colors.textLight },
+  transactionAmount: { fontSize: 18, fontWeight: 'bold', color: colors.success },
+  emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 48 },
+  emptyText: { fontSize: 18, fontWeight: '600', color: colors.text, marginTop: 16 },
+  emptySubtext: { fontSize: 14, color: colors.textLight, marginTop: 8, textAlign: 'center' },
 });

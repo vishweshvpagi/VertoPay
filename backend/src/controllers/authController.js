@@ -4,31 +4,34 @@ const Admin = require('../models/Admin');
 const cryptoService = require('../services/cryptoService');
 const { generateToken, generateId } = require('../utils/helpers');
 
-// Student Registration
+// ─────────────────────────────────────────────
+// POST /api/auth/register/student
+// ─────────────────────────────────────────────
 const registerStudent = async (req, res) => {
   try {
     const { name, email, password, phone } = req.body;
 
-    const existingStudent = await Student.findOne({ email });
+    if (!name || !email || !password || !phone) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    const existingStudent = await Student.findOne({ email: email.toLowerCase() });
     if (existingStudent) {
       return res.status(400).json({ message: 'Student already exists with this email' });
     }
 
-    // Generate RSA key pair
     const { publicKey, privateKey } = cryptoService.generateKeyPair();
-
-    // Generate student ID
     const studentId = generateId('STU');
 
     const student = await Student.create({
       studentId,
       name,
-      email,
+      email:      email.toLowerCase(),
       password,
       phone,
       publicKey,
       privateKey,
-      balance: 500 // Initial balance for demo
+      balance:    500,   // ✅ welcome bonus
     });
 
     const token = generateToken(student._id, 'student');
@@ -36,34 +39,55 @@ const registerStudent = async (req, res) => {
     res.status(201).json({
       message: 'Student registered successfully',
       token,
-      user: student
+      user:    student,   // toJSON() strips password + privateKey automatically
     });
   } catch (error) {
+    console.error('Register student error:', error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Merchant Registration
+// ─────────────────────────────────────────────
+// POST /api/auth/register/merchant
+// ─────────────────────────────────────────────
 const registerMerchant = async (req, res) => {
   try {
-    const { shopName, ownerName, email, password, phone, category } = req.body;
-
-    const existingMerchant = await Merchant.findOne({ email });
-    if (existingMerchant) {
-      return res.status(400).json({ message: 'Merchant already exists with this email' });
-    }
-
-    // Generate merchant ID
-    const merchantId = generateId('MER');
-
-    const merchant = await Merchant.create({
-      merchantId,
+    const {
       shopName,
       ownerName,
       email,
       password,
       phone,
-      category
+      category,
+      merchantId: frontendMerchantId,
+    } = req.body;
+
+    if (!shopName || !ownerName || !email || !password || !phone) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    const existingMerchant = await Merchant.findOne({ email: email.toLowerCase() });
+    if (existingMerchant) {
+      return res.status(400).json({ message: 'Merchant already exists with this email' });
+    }
+
+    // ✅ Use merchantId from frontend (e.g. "CAFE_02") or auto-generate
+    const merchantId = frontendMerchantId || category || generateId('MER');
+
+    // Guard against duplicate merchantId
+    const existingId = await Merchant.findOne({ merchantId });
+    if (existingId) {
+      return res.status(400).json({ message: `Merchant ID '${merchantId}' is already taken` });
+    }
+
+    const merchant = await Merchant.create({
+      merchantId,
+      shopName,
+      ownerName,
+      email:    email.toLowerCase(),
+      password,
+      phone,
+      category,
     });
 
     const token = generateToken(merchant._id, 'merchant');
@@ -71,27 +95,34 @@ const registerMerchant = async (req, res) => {
     res.status(201).json({
       message: 'Merchant registered successfully',
       token,
-      user: merchant
+      user:    merchant,
     });
   } catch (error) {
+    console.error('Register merchant error:', error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Admin Registration (for demo - in production, create via database)
+// ─────────────────────────────────────────────
+// POST /api/auth/register/admin
+// ─────────────────────────────────────────────
 const registerAdmin = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    const existingAdmin = await Admin.findOne({ email });
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    const existingAdmin = await Admin.findOne({ email: email.toLowerCase() });
     if (existingAdmin) {
       return res.status(400).json({ message: 'Admin already exists with this email' });
     }
 
     const admin = await Admin.create({
       name,
-      email,
-      password
+      email:    email.toLowerCase(),
+      password,
     });
 
     const token = generateToken(admin._id, 'admin');
@@ -99,40 +130,45 @@ const registerAdmin = async (req, res) => {
     res.status(201).json({
       message: 'Admin registered successfully',
       token,
-      user: admin
+      user:    admin,
     });
   } catch (error) {
+    console.error('Register admin error:', error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Login (works for all user types; role optional – finds user in any collection)
+// ─────────────────────────────────────────────
+// POST /api/auth/login
+// ─────────────────────────────────────────────
 const login = async (req, res) => {
   try {
     const { email, password, role } = req.body;
 
-    let user;
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
+
+    let user = null;
     let userRole = role;
 
     if (userRole === 'student') {
-      user = await Student.findOne({ email });
-      userRole = 'student';
+      user = await Student.findOne({ email: email.toLowerCase() });
     } else if (userRole === 'merchant') {
-      user = await Merchant.findOne({ email });
-      userRole = 'merchant';
+      user = await Merchant.findOne({ email: email.toLowerCase() });
     } else if (userRole === 'admin') {
-      user = await Admin.findOne({ email });
-      userRole = 'admin';
+      user = await Admin.findOne({ email: email.toLowerCase() });
     } else {
-      // No role or unknown: try student, then merchant, then admin
-      user = await Student.findOne({ email });
+      // Auto-detect role if not provided
+      user = await Student.findOne({ email: email.toLowerCase() });
       userRole = 'student';
+
       if (!user) {
-        user = await Merchant.findOne({ email });
+        user = await Merchant.findOne({ email: email.toLowerCase() });
         userRole = 'merchant';
       }
       if (!user) {
-        user = await Admin.findOne({ email });
+        user = await Admin.findOne({ email: email.toLowerCase() });
         userRole = 'admin';
       }
     }
@@ -147,26 +183,47 @@ const login = async (req, res) => {
     }
 
     if (user.isActive === false) {
-      return res.status(403).json({ message: 'Account is inactive' });
+      return res.status(403).json({ message: 'Account is deactivated. Contact admin.' });
     }
 
     const token = generateToken(user._id, userRole);
 
+    console.log(`✅ Login: ${userRole} ${user.email}`);
+
     res.json({
       message: 'Login successful',
       token,
-      user
+      user,
     });
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Get current user
+// ─────────────────────────────────────────────
+// GET /api/auth/me
+// Returns full user doc including balance
+// ─────────────────────────────────────────────
 const getMe = async (req, res) => {
   try {
-    res.json({ user: req.user });
+    // ✅ Re-fetch to always return the LATEST balance (not stale JWT cache)
+    let freshUser;
+    if (req.user.role === 'student') {
+      freshUser = await Student.findById(req.user._id).select('-password -privateKey');
+    } else if (req.user.role === 'merchant') {
+      freshUser = await Merchant.findById(req.user._id).select('-password');
+    } else if (req.user.role === 'admin') {
+      freshUser = await Admin.findById(req.user._id).select('-password');
+    }
+
+    if (!freshUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json({ user: freshUser });
   } catch (error) {
+    console.error('GetMe error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -176,5 +233,5 @@ module.exports = {
   registerMerchant,
   registerAdmin,
   login,
-  getMe
+  getMe,
 };

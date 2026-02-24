@@ -1,12 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  Modal,
+  View, Text, StyleSheet, TouchableOpacity,
+  ActivityIndicator, Modal,
 } from 'react-native';
 import { CameraView, Camera } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,219 +9,102 @@ import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
 import { useToast } from '../../contexts/ToastContext';
 import { MERCHANT_CATEGORIES } from '../../constants/Config';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiRequest } from '../../utils/api';
 
 export default function ScanScreen() {
   const { user } = useAuth();
   const { colors } = useTheme();
   const toast = useToast();
   const styles = getStyles(colors);
+
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const [paymentData, setPaymentData] = useState<any>(null);
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
   const [processing, setProcessing] = useState(false);
 
-  useEffect(() => {
-    getCameraPermission();
-  }, []);
+  useEffect(() => { getCameraPermission(); }, []);
 
   const getCameraPermission = async () => {
     const { status } = await Camera.requestCameraPermissionsAsync();
     setHasPermission(status === 'granted');
   };
 
-const handleBarCodeScanned = ({ data }: { data: string }) => {
-  setScanned(true);
-  
-  try {
-    const qrData = JSON.parse(data);
-    
-    if (qrData.type === 'payment' && qrData.transactionId) {
-      // Check if this payment is for the current merchant (by email or merchantId)
-      const isCorrectMerchant =
-        qrData.merchantEmail === user?.email ||
-        qrData.merchantId === user?.merchantId;
+  const handleBarCodeScanned = ({ data }: { data: string }) => {
+    setScanned(true);
+    try {
+      const qrData = JSON.parse(data);
 
-      if (!isCorrectMerchant) {
-        toast.show({
-          type: 'error',
-          text1: 'Transaction Failed',
-          text2: 'This QR is for a different merchant. Student may have selected the wrong one.',
-        });
+      if (qrData.type !== 'payment' || !qrData.transactionId) {
+        toast.show({ type: 'error', text1: 'Invalid QR', text2: 'Not a valid payment QR code.' });
         setScanned(false);
-        setPaymentData(null);
         return;
       }
 
-      // Correct merchant - proceed with payment
+      if (qrData.merchantId !== user?.merchantId) {
+        toast.show({
+          type: 'error',
+          text1: 'Wrong Merchant',
+          text2: `QR is for ${MERCHANT_CATEGORIES[qrData.merchantId] || qrData.merchantId}, but you are ${user?.merchantName}.`,
+        });
+        setScanned(false);
+        return;
+      }
+
       setPaymentData(qrData);
       setConfirmModalVisible(true);
-    } else {
-      toast.show({
-        type: 'error',
-        text1: 'Transaction Failed',
-        text2: 'This is not a valid payment QR code.',
-      });
+    } catch {
+      toast.show({ type: 'error', text1: 'Invalid QR Code', text2: 'Could not read QR data.' });
       setScanned(false);
     }
-  } catch (error) {
-    toast.show({
-      type: 'error',
-      text1: 'Invalid QR Code',
-      text2: 'Could not read QR code data.',
-    });
-    setScanned(false);
-  }
-};
-
+  };
 
   const handleConfirmPayment = async () => {
     setProcessing(true);
-
     try {
-      // Double check merchant again before processing
-      if (paymentData.merchantId !== user?.merchantId ||
-          (paymentData.merchantEmail && paymentData.merchantEmail !== user?.email)) {
-        toast.show({
-          type: 'error',
-          text1: 'Transaction Failed',
-          text2: 'Merchant verification failed.',
-        });
-        setConfirmModalVisible(false);
-        setScanned(false);
-        setPaymentData(null);
-        setProcessing(false);
-        return;
-      }
-
-      // Check if already processed (use GLOBAL_TRANSACTIONS if ALL_TRANSACTIONS not found)
-      const allTxnsData = await AsyncStorage.getItem('ALL_TRANSACTIONS');
-      const allTxns = allTxnsData ? JSON.parse(allTxnsData) : [];
-      const exists = allTxns.find((t: any) => t.transaction_id === paymentData.transactionId);
-
-      if (exists) {
-        toast.show({
-          type: 'error',
-          text1: 'Transaction Failed',
-          text2: 'This payment has already been completed.',
-        });
-        setConfirmModalVisible(false);
-        setScanned(false);
-        setPaymentData(null);
-        setProcessing(false);
-        return;
-      }
-
-      // Get student wallet
-      const studentWalletData = await AsyncStorage.getItem(`WALLET_${paymentData.studentEmail}`);
-      const studentWallet = studentWalletData 
-        ? JSON.parse(studentWalletData) 
-        : { balance: 0, transactions: [] };
-
-      // Check student balance
-      if (studentWallet.balance < paymentData.amount) {
-        toast.show({
-          type: 'error',
-          text1: 'Transaction Failed',
-          text2: `Insufficient balance. Student has ₹${studentWallet.balance.toFixed(2)} only.`,
-        });
-        setConfirmModalVisible(false);
-        setScanned(false);
-        setPaymentData(null);
-        setProcessing(false);
-        return;
-      }
-
-      // Create transaction
-      const transaction = {
-        transaction_id: paymentData.transactionId,
-        type: 'payment',
-        amount: paymentData.amount,
-        timestamp: paymentData.timestamp,
-        status: 'completed',
-        student_id: paymentData.studentId,
-        student_name: paymentData.studentName,
-        student_email: paymentData.studentEmail,
-        merchant_id: paymentData.merchantId,
-        merchant_name: paymentData.merchantName,
-        merchant_email: paymentData.merchantEmail,
-        riskScore: 0,
-        riskFlags: [],
-        reviewStatus: 'clean',
-      };
-
-      // Deduct from student
-      studentWallet.balance -= paymentData.amount;
-      studentWallet.transactions = [
-        {
-          ...transaction,
-          description: `Payment to ${paymentData.merchantName}`,
-        },
-        ...(studentWallet.transactions || [])
-      ];
-      await AsyncStorage.setItem(`WALLET_${paymentData.studentEmail}`, JSON.stringify(studentWallet));
-
-      // Add to merchant
-      const merchantWalletData = await AsyncStorage.getItem(`MERCHANT_WALLET_${user?.email}`);
-      const merchantWallet = merchantWalletData 
-        ? JSON.parse(merchantWalletData) 
-        : { balance: 0, transactions: [] };
-
-      merchantWallet.balance = (merchantWallet.balance || 0) + paymentData.amount;
-      merchantWallet.transactions = [
-        {
-          ...transaction,
-          description: `Payment from ${paymentData.studentName}`,
-        },
-        ...(merchantWallet.transactions || [])
-      ];
-      await AsyncStorage.setItem(`MERCHANT_WALLET_${user?.email}`, JSON.stringify(merchantWallet));
-
-      // Save to all transactions
-      allTxns.unshift(transaction);
-      await AsyncStorage.setItem('ALL_TRANSACTIONS', JSON.stringify(allTxns));
-
-      setConfirmModalVisible(false);
-      setScanned(false);
-      setPaymentData(null);
+      // ✅ Call backend — backend reads from MongoDB, not AsyncStorage
+      const result = await apiRequest<any>('/api/transactions/process-payment', {
+        method: 'POST',
+        body: JSON.stringify({
+          transactionId: paymentData.transactionId,
+          studentEmail:  paymentData.studentEmail,
+          studentId:     paymentData.studentId,
+          merchantId:    paymentData.merchantId,
+          merchantName:  paymentData.merchantName,
+          amount:        paymentData.amount,
+          timestamp:     paymentData.timestamp,
+        }),
+      });
 
       toast.show({
         type: 'success',
-        text1: 'Payment Successful',
+        text1: '✅ Payment Successful!',
         text2: `₹${paymentData.amount.toFixed(2)} received from ${paymentData.studentName}`,
       });
-    } catch (error: any) {
-      const msg = error?.message || '';
-      const isNetworkOrStorage =
-        /network|connection|timeout|fetch|storage|quota|unavailable/i.test(msg) ||
-        error?.code === 'NETWORK_ERROR' ||
-        error?.name === 'NetworkError';
 
-      if (isNetworkOrStorage) {
-        toast.show({
-          type: 'error',
-          text1: 'Network Issue',
-          text2: 'Please check your connection and try again.',
-        });
-      } else {
-        toast.show({
-          type: 'error',
-          text1: 'Transaction Failed',
-          text2: msg || 'Failed to process payment.',
-        });
-      }
-      setConfirmModalVisible(false);
-      setScanned(false);
-      setPaymentData(null);
+      resetState();
+    } catch (error: any) {
+      toast.show({
+        type: 'error',
+        text1: 'Transaction Failed',
+        text2: error?.message || 'Failed to process payment.',
+      });
+      resetState();
     } finally {
       setProcessing(false);
     }
   };
 
+  const resetState = () => {
+    setConfirmModalVisible(false);
+    setScanned(false);
+    setPaymentData(null);
+    setProcessing(false);
+  };
+
   if (hasPermission === null) {
     return (
-      <View style={styles.container}>
+      <View style={styles.centered}>
         <ActivityIndicator size="large" color={colors.merchant} />
         <Text style={styles.permissionText}>Requesting camera permission...</Text>
       </View>
@@ -235,7 +113,7 @@ const handleBarCodeScanned = ({ data }: { data: string }) => {
 
   if (hasPermission === false) {
     return (
-      <View style={styles.container}>
+      <View style={styles.centered}>
         <Ionicons name="ban" size={64} color={colors.danger} />
         <Text style={styles.permissionText}>No access to camera</Text>
         <TouchableOpacity style={styles.permissionButton} onPress={getCameraPermission}>
@@ -247,21 +125,19 @@ const handleBarCodeScanned = ({ data }: { data: string }) => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Scan Student QR</Text>
-        <Text style={styles.merchantInfo}>Logged in as: {user?.merchantName}</Text>
+        <Text style={styles.merchantInfoText}>
+          {user?.merchantName} · {user?.merchantId}
+        </Text>
       </View>
 
-      {/* Camera View */}
       <View style={styles.cameraContainer}>
         <CameraView
           style={styles.camera}
           facing="back"
           onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
         />
-        
-        {/* Scan Frame Overlay */}
         <View style={styles.overlay}>
           <View style={styles.scanFrame}>
             <View style={[styles.corner, styles.topLeft]} />
@@ -270,63 +146,40 @@ const handleBarCodeScanned = ({ data }: { data: string }) => {
             <View style={[styles.corner, styles.bottomRight]} />
           </View>
         </View>
-
-        {/* Instructions */}
         <View style={styles.instructions}>
           <Ionicons name="qr-code" size={32} color="#fff" />
-          <Text style={styles.instructionText}>
-            Scan the student's payment QR code
-          </Text>
-          <Text style={styles.instructionSubtext}>
-            Make sure it's for {user?.merchantName}
-          </Text>
+          <Text style={styles.instructionText}>Scan student's payment QR</Text>
+          <Text style={styles.instructionSubtext}>Must be for: {user?.merchantName}</Text>
         </View>
       </View>
 
-      {/* Reset Button */}
       {scanned && !confirmModalVisible && (
         <TouchableOpacity
           style={styles.resetButton}
-          onPress={() => {
-            setScanned(false);
-            setPaymentData(null);
-          }}
+          onPress={() => { setScanned(false); setPaymentData(null); }}
         >
           <Ionicons name="refresh" size={24} color="#fff" />
           <Text style={styles.resetButtonText}>Scan Again</Text>
         </TouchableOpacity>
       )}
 
-      {/* Confirmation Modal */}
       <Modal
         visible={confirmModalVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => {
-          setConfirmModalVisible(false);
-          setScanned(false);
-          setPaymentData(null);
-        }}
+        onRequestClose={resetState}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Confirm Payment</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setConfirmModalVisible(false);
-                  setScanned(false);
-                  setPaymentData(null);
-                }}
-                disabled={processing}
-              >
+              <TouchableOpacity onPress={resetState} disabled={processing}>
                 <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
 
             {paymentData && (
               <>
-                {/* Verification Badge */}
                 <View style={styles.verificationBadge}>
                   <Ionicons name="checkmark-circle" size={24} color={colors.success} />
                   <Text style={styles.verificationText}>
@@ -334,13 +187,11 @@ const handleBarCodeScanned = ({ data }: { data: string }) => {
                   </Text>
                 </View>
 
-                {/* Amount */}
                 <View style={styles.amountSection}>
                   <Text style={styles.amountLabel}>Amount to Receive</Text>
                   <Text style={styles.amountValue}>₹{paymentData.amount.toFixed(2)}</Text>
                 </View>
 
-                {/* Student Info */}
                 <View style={styles.infoCard}>
                   <View style={styles.infoIcon}>
                     <Ionicons name="person" size={24} color={colors.student} />
@@ -349,14 +200,16 @@ const handleBarCodeScanned = ({ data }: { data: string }) => {
                     <Text style={styles.infoLabel}>Student</Text>
                     <Text style={styles.infoValue}>{paymentData.studentName}</Text>
                     <Text style={styles.infoSubvalue}>ID: {paymentData.studentId}</Text>
+                    <Text style={styles.infoSubvalue}>{paymentData.studentEmail}</Text>
                   </View>
                 </View>
 
-                {/* Transaction Details */}
                 <View style={styles.detailsSection}>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Transaction ID</Text>
-                    <Text style={styles.detailValue}>{paymentData.transactionId}</Text>
+                    <Text style={styles.detailValue} numberOfLines={1}>
+                      {paymentData.transactionId}
+                    </Text>
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Merchant</Text>
@@ -374,9 +227,8 @@ const handleBarCodeScanned = ({ data }: { data: string }) => {
                   </View>
                 </View>
 
-                {/* Confirm Button */}
                 <TouchableOpacity
-                  style={styles.confirmButton}
+                  style={[styles.confirmButton, processing && { opacity: 0.6 }]}
                   onPress={handleConfirmPayment}
                   disabled={processing}
                 >
@@ -399,263 +251,59 @@ const handleBarCodeScanned = ({ data }: { data: string }) => {
 }
 
 const getStyles = (colors: any) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  header: {
-    width: '100%',
-    padding: 20,
-    paddingTop: 60,
-    backgroundColor: colors.merchant,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  merchantInfo: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: 4,
-  },
-  cameraContainer: {
-    flex: 1,
-    width: '100%',
-    position: 'relative',
-  },
-  camera: {
-    flex: 1,
-  },
-  overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scanFrame: {
-    width: 280,
-    height: 280,
-    position: 'relative',
-  },
-  corner: {
-    position: 'absolute',
-    width: 40,
-    height: 40,
-    borderColor: colors.merchant,
-  },
-  topLeft: {
-    top: 0,
-    left: 0,
-    borderTopWidth: 4,
-    borderLeftWidth: 4,
-  },
-  topRight: {
-    top: 0,
-    right: 0,
-    borderTopWidth: 4,
-    borderRightWidth: 4,
-  },
-  bottomLeft: {
-    bottom: 0,
-    left: 0,
-    borderBottomWidth: 4,
-    borderLeftWidth: 4,
-  },
-  bottomRight: {
-    bottom: 0,
-    right: 0,
-    borderBottomWidth: 4,
-    borderRightWidth: 4,
-  },
-  instructions: {
-    position: 'absolute',
-    bottom: 60,
-    alignItems: 'center',
-    gap: 12,
-  },
+  container: { flex: 1, backgroundColor: colors.background },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
+  header: { padding: 20, paddingTop: 60, backgroundColor: colors.merchant },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#fff' },
+  merchantInfoText: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginTop: 4 },
+  cameraContainer: { flex: 1, width: '100%', position: 'relative' },
+  camera: { flex: 1 },
+  overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
+  scanFrame: { width: 280, height: 280, position: 'relative' },
+  corner: { position: 'absolute', width: 40, height: 40, borderColor: colors.merchant },
+  topLeft: { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4 },
+  topRight: { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4 },
+  bottomLeft: { bottom: 0, left: 0, borderBottomWidth: 4, borderLeftWidth: 4 },
+  bottomRight: { bottom: 0, right: 0, borderBottomWidth: 4, borderRightWidth: 4 },
+  instructions: { position: 'absolute', bottom: 60, alignItems: 'center', gap: 12 },
   instructionText: {
-    fontSize: 16,
-    color: '#fff',
-    fontWeight: '600',
-    textAlign: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
+    fontSize: 16, color: '#fff', fontWeight: '600', textAlign: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20,
   },
   instructionSubtext: {
-    fontSize: 14,
-    color: '#fff',
-    textAlign: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 12,
+    fontSize: 14, color: '#fff', textAlign: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 12,
   },
   resetButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.merchant,
-    margin: 20,
-    padding: 16,
-    borderRadius: 12,
-    gap: 8,
-    width: '90%',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.merchant, margin: 20, padding: 16, borderRadius: 12, gap: 8,
   },
-  resetButtonText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  permissionText: {
-    fontSize: 18,
-    color: colors.text,
-    marginTop: 20,
-    textAlign: 'center',
-  },
-  permissionButton: {
-    backgroundColor: colors.merchant,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginTop: 20,
-  },
-  permissionButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: colors.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: 40,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
+  resetButtonText: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
+  permissionText: { fontSize: 18, color: colors.text, marginTop: 20, textAlign: 'center' },
+  permissionButton: { backgroundColor: colors.merchant, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, marginTop: 20 },
+  permissionButtonText: { fontSize: 16, fontWeight: 'bold', color: '#fff' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  modalTitle: { fontSize: 24, fontWeight: 'bold', color: colors.text },
   verificationBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.success + '15',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 20,
-    gap: 8,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: colors.success + '15', padding: 12, borderRadius: 12, marginBottom: 20, gap: 8,
   },
-  verificationText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.success,
-  },
-  amountSection: {
-    alignItems: 'center',
-    backgroundColor: colors.merchant + '15',
-    padding: 24,
-    borderRadius: 16,
-    marginBottom: 20,
-  },
-  amountLabel: {
-    fontSize: 14,
-    color: colors.textLight,
-    marginBottom: 8,
-  },
-  amountValue: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: colors.merchant,
-  },
-  infoCard: {
-    flexDirection: 'row',
-    backgroundColor: colors.background,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 20,
-    gap: 12,
-  },
-  infoIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.student + '20',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  infoDetails: {
-    flex: 1,
-  },
-  infoLabel: {
-    fontSize: 12,
-    color: colors.textLight,
-  },
-  infoValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginTop: 2,
-  },
-  infoSubvalue: {
-    fontSize: 12,
-    color: colors.textLight,
-    marginTop: 2,
-  },
-  detailsSection: {
-    backgroundColor: colors.background,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 20,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  detailLabel: {
-    fontSize: 13,
-    color: colors.textLight,
-  },
-  detailValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.text,
-    maxWidth: '60%',
-    textAlign: 'right',
-  },
-  confirmButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.merchant,
-    padding: 18,
-    borderRadius: 12,
-    gap: 10,
-  },
-  confirmButtonText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
+  verificationText: { fontSize: 14, fontWeight: '600', color: colors.success },
+  amountSection: { alignItems: 'center', backgroundColor: colors.merchant + '15', padding: 24, borderRadius: 16, marginBottom: 20 },
+  amountLabel: { fontSize: 14, color: colors.textLight, marginBottom: 8 },
+  amountValue: { fontSize: 48, fontWeight: 'bold', color: colors.merchant },
+  infoCard: { flexDirection: 'row', backgroundColor: colors.background, padding: 16, borderRadius: 12, marginBottom: 20, gap: 12 },
+  infoIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.student + '20', alignItems: 'center', justifyContent: 'center' },
+  infoDetails: { flex: 1 },
+  infoLabel: { fontSize: 12, color: colors.textLight },
+  infoValue: { fontSize: 18, fontWeight: 'bold', color: colors.text, marginTop: 2 },
+  infoSubvalue: { fontSize: 12, color: colors.textLight, marginTop: 2 },
+  detailsSection: { backgroundColor: colors.background, padding: 16, borderRadius: 12, marginBottom: 20 },
+  detailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
+  detailLabel: { fontSize: 13, color: colors.textLight },
+  detailValue: { fontSize: 13, fontWeight: '600', color: colors.text, maxWidth: '60%', textAlign: 'right' },
+  confirmButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.merchant, padding: 18, borderRadius: 12, gap: 10 },
+  confirmButtonText: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
 });

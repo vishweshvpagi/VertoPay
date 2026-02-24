@@ -36,8 +36,9 @@ const merchantSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['canteen', 'bookstore', 'stationery', 'laundry', 'other'],
-    default: 'other'
+    // ✅ FIXED: removed enum restriction so "CAFE_02" etc. are accepted
+    default: 'other',
+    trim: true
   },
   balance: {
     type: Number,
@@ -56,22 +57,17 @@ const merchantSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Hash password before saving
 merchantSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) {
-    return next();
-  }
+  if (!this.isModified('password')) return next();
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
   next();
 });
 
-// Compare password
 merchantSchema.methods.comparePassword = async function(enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-// Remove sensitive data
 merchantSchema.methods.toJSON = function() {
   const merchant = this.toObject();
   delete merchant.password;

@@ -441,43 +441,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (role === 'merchant') {
-        const category =
-          MERCHANT_CATEGORY_MAP[details.category] ||
-          (details.category || 'other').toLowerCase();
-        const data = await apiRequest<{ token: string; user: any }>(
-          '/api/auth/register/merchant',
-          {
-            method: 'POST',
-            body: JSON.stringify({
-              shopName: details.merchantName?.trim() || details.name?.trim() || 'Shop',
-              ownerName: details.name?.trim() || '',
-              email: emailLower,
-              password,
-              phone: details.phone || '0000000000',
-              category: ['canteen', 'bookstore', 'stationery', 'laundry', 'other'].includes(category)
-                ? category
-                : 'other',
-            }),
-            skipAuth: true,
-          }
-        );
-        const normalized = normalizeUser(data.user, 'merchant');
-        const now = Date.now();
-        const tokenData = {
-          token: data.token,
-          email: normalized.email,
-          expiresAt: now + 30 * 24 * 60 * 60 * 1000,
-          lastActivity: now,
-        };
-        
-        await AsyncStorage.setItem('AUTH_TOKEN', JSON.stringify(tokenData));
-        await AsyncStorage.setItem('CURRENT_USER', JSON.stringify(normalized));
-        setUser(normalized);
-        
-        console.log('✅ Merchant registered:', normalized.email);
-        console.log('=======================================\n');
-        return normalized;
-      }
+  const data = await apiRequest<{ token: string; user: any }>(
+    '/api/auth/register/merchant',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        shopName:   details.merchantName?.trim() || details.name?.trim() || 'Shop',
+        ownerName:  details.name?.trim() || '',
+        email:      emailLower,
+        password,
+        phone:      details.phone || '0000000000',
+        // ✅ FIXED: Send the actual category ID (e.g. "CAFE_02") as merchantId
+        merchantId: details.merchantId || details.category,
+        category:   details.merchantId || details.category,
+      }),
+      skipAuth: true,
+    }
+  );
+
+  const normalized = normalizeUser(data.user, 'merchant');
+
+  // ✅ FIXED: Make sure merchantId is on the normalized user object
+  if (!normalized.merchantId && data.user?.merchantId) {
+    normalized.merchantId = data.user.merchantId;
+  }
+
+  const now = Date.now();
+  const tokenData = {
+    token: data.token,
+    email: normalized.email,
+    expiresAt: now + 30 * 24 * 60 * 60 * 1000,
+    lastActivity: now,
+  };
+
+  await AsyncStorage.setItem('AUTH_TOKEN', JSON.stringify(tokenData));
+  await AsyncStorage.setItem('CURRENT_USER', JSON.stringify(normalized));
+  setUser(normalized);
+
+  console.log('✅ Merchant registered:', normalized.email, '| merchantId:', normalized.merchantId);
+  console.log('=======================================\n');
+  return normalized;
+}
 
       throw new Error('Invalid role');
     } catch (error: any) {

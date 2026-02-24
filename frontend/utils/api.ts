@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 
 // Your laptop's IP address
-const LAPTOP_IP = "192.168.0.101";
+const LAPTOP_IP = "192.168.29.189"; // <- replace with your PC's actual LAN IP
 const PORT = "5000";
 
 const getApiBaseUrl = (): string => {
@@ -19,9 +19,11 @@ const getApiBaseUrl = (): string => {
       return `http://${LAPTOP_IP}:${PORT}`;
     }
   }
-  
+
   // Production mode
-  return (process as any).env?.EXPO_PUBLIC_API_URL || `http://${LAPTOP_IP}:${PORT}`;
+  return (
+    (process as any).env?.EXPO_PUBLIC_API_URL || `http://${LAPTOP_IP}:${PORT}`
+  );
 };
 
 export const API_BASE_URL = getApiBaseUrl();
@@ -44,13 +46,13 @@ export interface ApiRequestOptions extends RequestInit {
  */
 export async function apiRequest<T = unknown>(
   path: string,
-  options: ApiRequestOptions = {}
+  options: ApiRequestOptions = {},
 ): Promise<T> {
   const { skipAuth, ...fetchOptions } = options;
   const url = `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
-  
+
   console.log("📡 API Request:", url);
-  
+
   const headers: HeadersInit = {
     "Content-Type": "application/json",
     ...((fetchOptions.headers as Record<string, string>) || {}),
@@ -80,7 +82,7 @@ export async function apiRequest<T = unknown>(
     console.error("⏰ Request timeout after", REQUEST_TIMEOUT_MS, "ms");
     controller.abort();
   }, REQUEST_TIMEOUT_MS);
-  
+
   const signal = fetchOptions.signal ?? controller.signal;
   const finalOptions = { ...fetchOptions, headers, signal };
 
@@ -89,22 +91,22 @@ export async function apiRequest<T = unknown>(
     res = await fetch(url, finalOptions);
   } catch (err: any) {
     clearTimeout(timeoutId);
-    
+
     if (err?.name === "AbortError") {
       const errorMsg = `Request timed out after ${REQUEST_TIMEOUT_MS / 1000}s. Is the backend running at ${API_BASE_URL}?`;
       console.error("❌", errorMsg);
       throw new Error(errorMsg);
     }
-    
+
     const msg =
-      err?.message || 
-      err?.toString?.() || 
+      err?.message ||
+      err?.toString?.() ||
       `Network error. Check if backend is running at ${API_BASE_URL}`;
-    
+
     console.error("❌ Network error:", msg);
     throw new Error(msg);
   }
-  
+
   clearTimeout(timeoutId);
 
   console.log("📡 Response status:", res.status);
@@ -122,7 +124,7 @@ export async function apiRequest<T = unknown>(
   if (!res.ok) {
     const message = data?.message || res.statusText || "Request failed";
     console.error("❌ API Error:", res.status, message);
-    
+
     const err = new Error(message) as Error & { status?: number };
     err.status = res.status;
     throw err;
@@ -140,7 +142,7 @@ export async function testConnection(): Promise<boolean> {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     });
-    
+
     if (response.ok) {
       const data = await response.json();
       console.log("✅ Backend connection successful:", data);

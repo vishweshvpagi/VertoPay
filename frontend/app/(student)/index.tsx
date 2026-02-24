@@ -1,190 +1,113 @@
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useState } from "react";
 import {
-    ActivityIndicator,
-    Dimensions,
-    Modal,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator, Dimensions, Modal, Platform,
+  RefreshControl, ScrollView, StyleSheet, Text,
+  TouchableOpacity, View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MERCHANT_CATEGORIES } from "../../constants/Config";
 import { useAuth } from "../../hooks/useAuth";
 import { useTheme } from "../../hooks/useTheme";
-
+import { apiRequest } from "../../utils/api";
 
 const { width } = Dimensions.get("window");
-
 
 export default function StudentHomeScreen() {
   const { user, loading: authLoading } = useAuth();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  
+
   const [loading, setLoading] = useState(false);
   const [balance, setBalance] = useState(0);
   const [transactions, setTransactions] = useState<any[]>([]);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [notificationModalVisible, setNotificationModalVisible] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState("");
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  console.log('🏠 StudentHome - User:', user?.email, '| Name:', user?.name, '| ID:', user?.id || user?.studentId);
+  console.log('🏠 StudentHome - User:', user?.email);
 
-  // Load data when screen comes into focus
+  // ✅ Reload every time screen is focused
   useFocusEffect(
     useCallback(() => {
-      if (user?.email) {
-        console.log('🔄 Screen focused, loading data...');
-        loadData();
-      }
-    }, [user?.email])
+      if (user) loadData();
+    }, [user])
   );
 
   const loadData = async () => {
-    if (!user?.email) {
-      console.log('❌ No user email, cannot load data');
-      return;
-    }
-
     setLoading(true);
-    console.log('📂 Loading wallet data for:', user.email);
-    
     try {
-      const walletData = await AsyncStorage.getItem(`WALLET_${user.email}`);
-      console.log('💰 Raw wallet data:', walletData);
-      
-      if (walletData) {
-        const wallet = JSON.parse(walletData);
-        console.log('✅ Wallet parsed:', wallet);
-        setBalance(wallet.balance || 0);
-        setTransactions(wallet.transactions || []);
-      } else {
-        // Initialize wallet with default balance
-        console.log('⚠️ No wallet found, creating new wallet with ₹1000');
-        const initialWallet = {
-          balance: 1000,
-          transactions: [],
-          lastUpdated: new Date().toISOString()
-        };
-        await AsyncStorage.setItem(`WALLET_${user.email}`, JSON.stringify(initialWallet));
-        setBalance(1000);
-        setTransactions([]);
-      }
+      // ✅ Fetch balance from backend
+      const meData = await apiRequest<{ user: any }>('/api/auth/me');
+      setBalance(meData.user?.balance ?? 0);
+
+      // ✅ Fetch transactions from backend
+      const txnData = await apiRequest<{ transactions: any[] }>('/api/transactions/history');
+      const txns = txnData.transactions || [];
+      setTransactions(txns);
+
+      // Derive unread notification count from unseen transactions
+      // (simple approach: count transactions from last 24h as "new")
+      const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+      const recent = txns.filter((t: any) => {
+        const ts = t.createdAt || t.qrTimestamp || t.timestamp;
+        return ts && new Date(ts).getTime() > oneDayAgo;
+      });
+      setUnreadCount(recent.length);
     } catch (error) {
-      console.error("❌ Load wallet error:", error);
+      console.error("❌ Load data error:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const getMerchantName = (merchantId: string) => {
-    if (merchantId === "WALLET_RECHARGE") return "Wallet Recharge";
+  const getMerchantName = (t: any) => {
+    // Handle both old AsyncStorage shape and new MongoDB populated shape
+    if (t.merchant?.shopName) return t.merchant.shopName;
+    const merchantId = t.merchant_id || t.merchantId;
+    if (!merchantId || merchantId === 'WALLET_RECHARGE') return 'Wallet Recharge';
     return MERCHANT_CATEGORIES[merchantId] || merchantId;
   };
 
-  const loadNotifications = async () => {
-    if (!user?.email) return;
+  const getTimestamp = (t: any) =>
+    t.createdAt || t.timestamp || t.qrTimestamp || new Date().toISOString();
 
-    try {
-      console.log('🔔 Loading notifications for:', user.email);
-      const notificationsData = await AsyncStorage.getItem(`NOTIFICATIONS_${user.email}`);
-      
-      let allNotifications: any[] = notificationsData ? JSON.parse(notificationsData) : [];
-      
-      // Generate notifications from recent transactions
-      if (transactions.length > 0) {
-        const existingNotificationIds = new Set(allNotifications.map((n: any) => n.transactionId));
-        const newNotifications: any[] = [];
-        
-        // Check last 10 transactions for new notifications
-        const recentTxns = transactions.slice(0, 10);
-        for (const txn of recentTxns) {
-          if (!existingNotificationIds.has(txn.transaction_id)) {
-            let message = '';
-            if (txn.type === 'recharge') {
-              message = `Wallet recharged with ₹${txn.amount}`;
-            } else if (txn.type === 'payment') {
-              const merchantName = getMerchantName(txn.merchant_id);
-              message = `Payment of ₹${txn.amount} to ${merchantName}`;
-            } else if (txn.type === 'reversal') {
-              message = `Transaction reversed: ₹${txn.amount} refunded`;
-            }
-            
-            if (message) {
-              newNotifications.push({
-                id: `NOTIF_${txn.transaction_id}`,
-                transactionId: txn.transaction_id,
-                message,
-                read: false,
-                timestamp: txn.timestamp || new Date().toISOString(),
-              });
-            }
-          }
-        }
-        
-        if (newNotifications.length > 0) {
-          allNotifications = [...newNotifications, ...allNotifications];
-          await AsyncStorage.setItem(`NOTIFICATIONS_${user.email}`, JSON.stringify(allNotifications));
-          console.log('✅ Added', newNotifications.length, 'new notifications');
-        }
-      }
-      
-      setNotifications(allNotifications);
-      const unread = allNotifications.filter((n: any) => !n.read).length;
-      setUnreadCount(unread);
-      console.log('📊 Notifications loaded - Total:', allNotifications.length, '| Unread:', unread);
-    } catch (error) {
-      console.error("❌ Load notifications error:", error);
-    }
-  };
+  const getAmount = (t: any) =>
+    typeof t.amount === 'number' ? t.amount : parseFloat(t.amount) || 0;
 
-  // Load notifications when transactions change
-  React.useEffect(() => {
-    if (transactions.length > 0) {
-      loadNotifications();
-    }
-  }, [transactions.length]);
+  const isPayment = (t: any) =>
+    t.type === 'payment' || (t.merchant && t.type !== 'recharge');
 
-  const handleNotificationPress = async () => {
-    if (notifications.length === 0) {
+  const handleNotificationPress = () => {
+    if (unreadCount === 0) {
       setNotificationMessage("No new notifications");
-      setNotificationModalVisible(true);
     } else {
-      const unreadNotifications = notifications.filter((n: any) => !n.read);
-      if (unreadNotifications.length === 0) {
-        setNotificationMessage("No new notifications");
-        setNotificationModalVisible(true);
-      } else {
-        const message = unreadNotifications.map((n: any) => `• ${n.message}`).join('\n');
-        setNotificationMessage(message);
-        setNotificationModalVisible(true);
-        
-        // Mark as read
-        const updatedNotifications = notifications.map((n: any) => ({ ...n, read: true }));
-        setNotifications(updatedNotifications);
-        setUnreadCount(0);
-        
-        if (user?.email) {
-          await AsyncStorage.setItem(`NOTIFICATIONS_${user.email}`, JSON.stringify(updatedNotifications));
-        }
-      }
+      const recent = transactions.slice(0, unreadCount);
+      const message = recent.map((t: any) => {
+        const amt = getAmount(t);
+        return isPayment(t)
+          ? `• Payment of ₹${amt.toFixed(2)} to ${getMerchantName(t)}`
+          : `• Wallet recharged with ₹${amt.toFixed(2)}`;
+      }).join('\n');
+      setNotificationMessage(message);
+      setUnreadCount(0);
     }
+    setNotificationModalVisible(true);
   };
+
+  // Stats computed from real backend transactions
+  const rechargeCount = transactions.filter((t) => t.type === 'recharge').length;
+  const paymentCount  = transactions.filter((t) => isPayment(t)).length;
+  const totalSpent    = transactions
+    .filter((t) => isPayment(t))
+    .reduce((sum, t) => sum + getAmount(t), 0);
 
   const recentTransactions = transactions.slice(0, 5);
   const styles = getStyles(colors as unknown as Record<string, string>);
 
-  // Show loading state
   if (authLoading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -194,7 +117,6 @@ export default function StudentHomeScreen() {
     );
   }
 
-  // Safety check
   if (!user) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -203,9 +125,8 @@ export default function StudentHomeScreen() {
     );
   }
 
-  // Get user display name and ID
-  const userName = user.name || user.fullName || user.username || user.email?.split('@')[0] || 'Student';
-  const studentId = user.studentId || user.id || user.userId || user._id || 'N/A';
+  const userName  = user.name || user.fullName || user.email?.split('@')[0] || 'Student';
+  const studentId = user.studentId || user._id || user.id || 'N/A';
 
   return (
     <>
@@ -213,8 +134,8 @@ export default function StudentHomeScreen() {
         style={[styles.container, { backgroundColor: colors.background }]}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl 
-            refreshing={loading} 
+          <RefreshControl
+            refreshing={loading}
             onRefresh={loadData}
             colors={[colors.student]}
             tintColor={colors.student}
@@ -222,7 +143,7 @@ export default function StudentHomeScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Premium Header with Gradient Effect */}
+        {/* Header */}
         <View style={styles.header}>
           <View style={[styles.headerGradient, { paddingTop: insets.top + 24 }]}>
             <View style={styles.headerContent}>
@@ -252,7 +173,7 @@ export default function StudentHomeScreen() {
           </View>
         </View>
 
-        {/* Premium Balance Card */}
+        {/* Balance Card */}
         <View style={styles.balanceCardContainer}>
           <View style={styles.balanceCard}>
             <View style={styles.balanceCardGradient} />
@@ -265,11 +186,7 @@ export default function StudentHomeScreen() {
                     <Text style={styles.balanceAmount}>{balance.toFixed(2)}</Text>
                   </View>
                 </View>
-                <TouchableOpacity 
-                  style={styles.refreshBtn}
-                  onPress={loadData}
-                  activeOpacity={0.7}
-                >
+                <TouchableOpacity style={styles.refreshBtn} onPress={loadData} activeOpacity={0.7}>
                   <Ionicons name="refresh" size={20} color="rgba(255,255,255,0.9)" />
                 </TouchableOpacity>
               </View>
@@ -296,86 +213,31 @@ export default function StudentHomeScreen() {
             <View style={styles.sectionTitleUnderline} />
           </View>
           <View style={styles.quickActions}>
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() => router.push("/(student)/pay")}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.actionIcon, styles.actionIconPrimary]}>
-                <Ionicons name="restaurant" size={22} color={colors.primary} />
-              </View>
-              <Text style={styles.actionText}>Canteen</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() => router.push("/(student)/pay")}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.actionIcon, styles.actionIconSuccess]}>
-                <Ionicons name="book" size={22} color={colors.success} />
-              </View>
-              <Text style={styles.actionText}>Library</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() => router.push("/(student)/pay")}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.actionIcon, styles.actionIconMedical]}>
-                <Ionicons name="medical" size={22} color="#EC4899" />
-              </View>
-              <Text style={styles.actionText}>Clinic</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() => router.push("/(student)/pay")}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.actionIcon, styles.actionIconWarning]}>
-                <Ionicons name="print" size={22} color={colors.warning} />
-              </View>
-              <Text style={styles.actionText}>Print</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() => router.push("/(student)/pay")}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.actionIcon, styles.actionIconPrimary]}>
-                <Ionicons name="shirt" size={22} color={colors.primary} />
-              </View>
-              <Text style={styles.actionText}>Laundry</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() => router.push("/(student)/pay")}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.actionIcon, styles.actionIconWarning]}>
-                <Ionicons name="film" size={22} color={colors.warning} />
-              </View>
-              <Text style={styles.actionText}>Events</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() => router.push("/(student)/pay")}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.actionIcon, styles.actionIconDanger]}>
-                <Ionicons name="ellipsis-horizontal" size={22} color={colors.danger} />
-              </View>
-              <Text style={styles.actionText}>More</Text>
-            </TouchableOpacity>
+            {[
+              { icon: 'restaurant', label: 'Canteen',  color: colors.primary,   bg: 'actionIconPrimary' },
+              { icon: 'book',       label: 'Library',  color: colors.success,   bg: 'actionIconSuccess' },
+              { icon: 'medical',    label: 'Clinic',   color: '#EC4899',        bg: 'actionIconMedical' },
+              { icon: 'print',      label: 'Print',    color: colors.warning,   bg: 'actionIconWarning' },
+              { icon: 'shirt',      label: 'Laundry',  color: colors.primary,   bg: 'actionIconPrimary' },
+              { icon: 'film',       label: 'Events',   color: colors.warning,   bg: 'actionIconWarning' },
+              { icon: 'ellipsis-horizontal', label: 'More', color: colors.danger, bg: 'actionIconDanger' },
+            ].map(({ icon, label, color, bg }) => (
+              <TouchableOpacity
+                key={label}
+                style={styles.actionCard}
+                onPress={() => router.push("/(student)/pay")}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.actionIcon, styles[bg as keyof typeof styles] as any]}>
+                  <Ionicons name={icon as any} size={22} color={color} />
+                </View>
+                <Text style={styles.actionText}>{label}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
 
-        {/* Stats */}
+        {/* Stats — from real backend data */}
         <View style={styles.section}>
           <View style={styles.sectionTitleContainer}>
             <Text style={styles.sectionTitle}>This Month</Text>
@@ -386,30 +248,21 @@ export default function StudentHomeScreen() {
               <View style={[styles.statIconContainer, styles.statIconSuccess]}>
                 <Ionicons name="trending-up" size={20} color={colors.success} />
               </View>
-              <Text style={styles.statNumber}>
-                {transactions.filter((t) => t.type === "recharge").length}
-              </Text>
+              <Text style={styles.statNumber}>{rechargeCount}</Text>
               <Text style={styles.statLabel}>Recharges</Text>
             </View>
             <View style={styles.statCard}>
               <View style={[styles.statIconContainer, styles.statIconPrimary]}>
                 <Ionicons name="cart" size={20} color={colors.primary} />
               </View>
-              <Text style={styles.statNumber}>
-                {transactions.filter((t) => t.type === "payment").length}
-              </Text>
+              <Text style={styles.statNumber}>{paymentCount}</Text>
               <Text style={styles.statLabel}>Payments</Text>
             </View>
             <View style={styles.statCard}>
               <View style={[styles.statIconContainer, styles.statIconWarning]}>
                 <Ionicons name="cash" size={20} color={colors.warning} />
               </View>
-              <Text style={styles.statNumber}>
-                ₹{transactions
-                  .filter((t) => t.type === "payment")
-                  .reduce((sum, t) => sum + t.amount, 0)
-                  .toFixed(0)}
-              </Text>
+              <Text style={styles.statNumber}>₹{totalSpent.toFixed(0)}</Text>
               <Text style={styles.statLabel}>Spent</Text>
             </View>
           </View>
@@ -422,10 +275,7 @@ export default function StudentHomeScreen() {
               <Text style={styles.sectionTitle}>Recent Transactions</Text>
               <View style={styles.sectionTitleUnderline} />
             </View>
-            <TouchableOpacity 
-              onPress={() => router.push("/(student)/history")}
-              activeOpacity={0.7}
-            >
+            <TouchableOpacity onPress={() => router.push("/(student)/history")} activeOpacity={0.7}>
               <View style={styles.viewAllContainer}>
                 <Text style={styles.viewAllText}>View All</Text>
                 <Ionicons name="chevron-forward" size={16} color={colors.student} />
@@ -434,52 +284,40 @@ export default function StudentHomeScreen() {
           </View>
 
           {recentTransactions.length > 0 ? (
-            recentTransactions.map((txn, index) => (
-              <TouchableOpacity 
-                key={txn.transaction_id || index} 
-                style={styles.txnCard}
-                activeOpacity={0.7}
-              >
-                <View
-                  style={[
-                    styles.txnIcon,
-                    txn.type === "payment" ? styles.txnIconPayment : styles.txnIconRecharge,
-                  ]}
+            recentTransactions.map((txn, index) => {
+              const payment = isPayment(txn);
+              const amount  = getAmount(txn);
+              const ts      = getTimestamp(txn);
+              return (
+                <TouchableOpacity
+                  key={txn.transactionId || txn._id || index}
+                  style={styles.txnCard}
+                  activeOpacity={0.7}
                 >
-                  <Ionicons
-                    name={txn.type === "payment" ? "arrow-up" : "arrow-down"}
-                    size={18}
-                    color={txn.type === "payment" ? colors.danger : colors.success}
-                  />
-                </View>
-                <View style={styles.txnInfo}>
-                  <Text style={styles.txnTitle}>
-                    {txn.type === "payment"
-                      ? getMerchantName(txn.merchant_id)
-                      : "Wallet Recharge"}
-                  </Text>
-                  <Text style={styles.txnDate}>
-                    {new Date(txn.timestamp).toLocaleDateString('en-IN')} •{" "}
-                    {new Date(txn.timestamp).toLocaleTimeString('en-IN', {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </Text>
-                </View>
-                <View style={styles.txnAmountContainer}>
-                  <Text
-                    style={[
-                      styles.txnAmount,
-                      {
-                        color: txn.type === "payment" ? colors.danger : colors.success,
-                      },
-                    ]}
-                  >
-                    {txn.type === "payment" ? "-" : "+"}₹{txn.amount.toFixed(2)}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))
+                  <View style={[styles.txnIcon, payment ? styles.txnIconPayment : styles.txnIconRecharge]}>
+                    <Ionicons
+                      name={payment ? "arrow-up" : "arrow-down"}
+                      size={18}
+                      color={payment ? colors.danger : colors.success}
+                    />
+                  </View>
+                  <View style={styles.txnInfo}>
+                    <Text style={styles.txnTitle}>
+                      {payment ? getMerchantName(txn) : "Wallet Recharge"}
+                    </Text>
+                    <Text style={styles.txnDate}>
+                      {new Date(ts).toLocaleDateString('en-IN')} •{" "}
+                      {new Date(ts).toLocaleTimeString('en-IN', { hour: "2-digit", minute: "2-digit" })}
+                    </Text>
+                  </View>
+                  <View style={styles.txnAmountContainer}>
+                    <Text style={[styles.txnAmount, { color: payment ? colors.danger : colors.success }]}>
+                      {payment ? "-" : "+"}₹{amount.toFixed(2)}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
           ) : (
             <View style={styles.emptyState}>
               <View style={styles.emptyIconWrap}>
@@ -538,542 +376,154 @@ export default function StudentHomeScreen() {
 
 function getStyles(colors: Record<string, string>) {
   return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    loadingText: {
-      marginTop: 16,
-      fontSize: 14,
-      color: colors.textSecondary,
-      fontWeight: '500',
-    },
-    errorText: {
-      fontSize: 16,
-      color: colors.danger,
-      fontWeight: '600',
-    },
-    header: {
-      paddingBottom: 0,
-      overflow: "hidden",
-    },
+    container: { flex: 1, backgroundColor: colors.background },
+    loadingText: { marginTop: 16, fontSize: 14, color: colors.textSecondary, fontWeight: '500' },
+    errorText: { fontSize: 16, color: colors.danger, fontWeight: '600' },
+    header: { paddingBottom: 0, overflow: "hidden" },
     headerGradient: {
-      backgroundColor: colors.student,
-      paddingBottom: 30,
-      paddingHorizontal: 20,
+      backgroundColor: colors.student, paddingBottom: 30, paddingHorizontal: 20,
       ...Platform.select({
-        ios: {
-          shadowColor: colors.shadowDark,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.15,
-          shadowRadius: 12,
-        },
-        android: {
-          elevation: 8,
-        },
+        ios: { shadowColor: colors.shadowDark, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12 },
+        android: { elevation: 8 },
       }),
     },
-    headerContent: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "flex-start",
-    },
-    headerTextContainer: {
-      flex: 1,
-    },
-    greeting: {
-      fontSize: 15,
-      color: "#fff",
-      opacity: 0.95,
-      fontWeight: "500",
-      letterSpacing: 0.3,
-      marginBottom: 4,
-    },
-    name: {
-      fontSize: 28,
-      fontWeight: "700",
-      color: "#fff",
-      marginTop: 2,
-      marginBottom: 6,
-      letterSpacing: -0.5,
-    },
-    studentIdContainer: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      marginTop: 4,
-    },
-    studentId: {
-      fontSize: 13,
-      color: "#fff",
-      opacity: 0.9,
-      fontWeight: "500",
-    },
+    headerContent: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+    headerTextContainer: { flex: 1 },
+    greeting: { fontSize: 15, color: "#fff", opacity: 0.95, fontWeight: "500", letterSpacing: 0.3, marginBottom: 4 },
+    name: { fontSize: 28, fontWeight: "700", color: "#fff", marginTop: 2, marginBottom: 6, letterSpacing: -0.5 },
+    studentIdContainer: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
+    studentId: { fontSize: 13, color: "#fff", opacity: 0.9, fontWeight: "500" },
     notificationBtn: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
+      width: 48, height: 48, borderRadius: 24,
       backgroundColor: "rgba(255,255,255,0.25)",
-      alignItems: "center",
-      justifyContent: "center",
-      borderWidth: 1,
-      borderColor: "rgba(255,255,255,0.3)",
-      position: "relative",
+      alignItems: "center", justifyContent: "center",
+      borderWidth: 1, borderColor: "rgba(255,255,255,0.3)", position: "relative",
     },
     notificationBadge: {
-      position: "absolute",
-      top: 6,
-      right: 6,
-      minWidth: 18,
-      height: 18,
-      borderRadius: 9,
-      backgroundColor: "#EF4444",
-      borderWidth: 2,
-      borderColor: "#fff",
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 4,
+      position: "absolute", top: 6, right: 6, minWidth: 18, height: 18,
+      borderRadius: 9, backgroundColor: "#EF4444", borderWidth: 2, borderColor: "#fff",
+      alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4,
     },
-    notificationBadgeText: {
-      color: '#fff',
-      fontSize: 10,
-      fontWeight: '700',
-    },
-    balanceCardContainer: {
-      marginHorizontal: 20,
-      marginTop: -20,
-      marginBottom: 8,
-    },
+    notificationBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+    balanceCardContainer: { marginHorizontal: 20, marginTop: -20, marginBottom: 8 },
     balanceCard: {
-      borderRadius: 24,
-      overflow: "hidden",
+      borderRadius: 24, overflow: "hidden",
       ...Platform.select({
-        ios: {
-          shadowColor: colors.shadowDark,
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.2,
-          shadowRadius: 16,
-        },
-        android: {
-          elevation: 12,
-        },
+        ios: { shadowColor: colors.shadowDark, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 16 },
+        android: { elevation: 12 },
       }),
     },
-    balanceCardGradient: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: colors.student,
-      opacity: 0.95,
-    },
-    balanceCardContent: {
-      padding: 28,
-      backgroundColor: "transparent",
-    },
-    balanceHeader: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "flex-start",
-      marginBottom: 16,
-    },
-    balanceLabel: {
-      fontSize: 14,
-      color: "rgba(255,255,255,0.9)",
-      fontWeight: "500",
-      letterSpacing: 0.5,
-      marginBottom: 8,
-    },
-    balanceAmountContainer: {
-      flexDirection: "row",
-      alignItems: "baseline",
-      gap: 4,
-    },
-    currencySymbol: {
-      fontSize: 28,
-      fontWeight: "600",
-      color: "rgba(255,255,255,0.95)",
-    },
-    balanceAmount: {
-      fontSize: 44,
-      fontWeight: "700",
-      color: "#fff",
-      letterSpacing: -1,
-    },
+    balanceCardGradient: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.student, opacity: 0.95 },
+    balanceCardContent: { padding: 28, backgroundColor: "transparent" },
+    balanceHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 },
+    balanceLabel: { fontSize: 14, color: "rgba(255,255,255,0.9)", fontWeight: "500", letterSpacing: 0.5, marginBottom: 8 },
+    balanceAmountContainer: { flexDirection: "row", alignItems: "baseline", gap: 4 },
+    currencySymbol: { fontSize: 28, fontWeight: "600", color: "rgba(255,255,255,0.95)" },
+    balanceAmount: { fontSize: 44, fontWeight: "700", color: "#fff", letterSpacing: -1 },
     refreshBtn: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
+      width: 40, height: 40, borderRadius: 20,
       backgroundColor: "rgba(255,255,255,0.2)",
-      alignItems: "center",
-      justifyContent: "center",
-      borderWidth: 1,
-      borderColor: "rgba(255,255,255,0.3)",
+      alignItems: "center", justifyContent: "center",
+      borderWidth: 1, borderColor: "rgba(255,255,255,0.3)",
     },
-    balanceActions: {
-      flexDirection: "row",
-      gap: 14,
-      marginTop: 8,
-    },
-    btnIconContainer: {
-      marginRight: 6,
-    },
+    balanceActions: { flexDirection: "row", gap: 14, marginTop: 8 },
+    btnIconContainer: { marginRight: 6 },
     rechargeBtn: {
-      flex: 1,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: "rgba(255,255,255,0.25)",
-      paddingVertical: 16,
-      paddingHorizontal: 20,
-      borderRadius: 16,
-      borderWidth: 1.5,
-      borderColor: "rgba(255,255,255,0.4)",
+      flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
+      backgroundColor: "rgba(255,255,255,0.25)", paddingVertical: 16, paddingHorizontal: 20,
+      borderRadius: 16, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.4)",
     },
-    rechargeBtnText: {
-      color: "#fff",
-      fontSize: 15,
-      fontWeight: "600",
-      letterSpacing: 0.3,
-    },
-    section: {
-      paddingHorizontal: 20,
-      paddingTop: 24,
-      paddingBottom: 8,
-    },
-    sectionHeader: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: 20,
-    },
-    sectionTitleContainer: {
-      flex: 1,
-    },
-    sectionTitle: {
-      fontSize: 22,
-      fontWeight: "700",
-      color: colors.text,
-      letterSpacing: -0.3,
-      marginBottom: 6,
-    },
-    sectionTitleUnderline: {
-      width: 40,
-      height: 3,
-      backgroundColor: colors.student,
-      borderRadius: 2,
-      opacity: 0.6,
-    },
-    viewAllContainer: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-    },
-    viewAllText: {
-      fontSize: 14,
-      color: colors.student,
-      fontWeight: "600",
-      letterSpacing: 0.2,
-    },
-    quickActions: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 12,
-      justifyContent: "space-between",
-    },
+    rechargeBtnText: { color: "#fff", fontSize: 15, fontWeight: "600", letterSpacing: 0.3 },
+    section: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 8 },
+    sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
+    sectionTitleContainer: { flex: 1 },
+    sectionTitle: { fontSize: 22, fontWeight: "700", color: colors.text, letterSpacing: -0.3, marginBottom: 6 },
+    sectionTitleUnderline: { width: 40, height: 3, backgroundColor: colors.student, borderRadius: 2, opacity: 0.6 },
+    viewAllContainer: { flexDirection: "row", alignItems: "center", gap: 4 },
+    viewAllText: { fontSize: 14, color: colors.student, fontWeight: "600", letterSpacing: 0.2 },
+    quickActions: { flexDirection: "row", flexWrap: "wrap", gap: 12, justifyContent: "space-between" },
     actionCard: {
-      width: (width - 64) / 4,
-      backgroundColor: colors.card,
-      padding: 16,
-      borderRadius: 18,
-      alignItems: "center",
-      borderWidth: 1,
-      borderColor: colors.borderLight,
-      marginBottom: 12,
+      width: (width - 64) / 4, backgroundColor: colors.card,
+      padding: 16, borderRadius: 18, alignItems: "center",
+      borderWidth: 1, borderColor: colors.borderLight, marginBottom: 12,
       ...Platform.select({
-        ios: {
-          shadowColor: colors.shadow,
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.08,
-          shadowRadius: 8,
-        },
-        android: {
-          elevation: 3,
-        },
+        ios: { shadowColor: colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8 },
+        android: { elevation: 3 },
       }),
     },
-    actionIcon: {
-      width: 52,
-      height: 52,
-      borderRadius: 26,
-      alignItems: "center",
-      justifyContent: "center",
-      marginBottom: 10,
-    },
-    actionIconPrimary: {
-      backgroundColor: colors.primary + "15",
-    },
-    actionIconSuccess: {
-      backgroundColor: colors.success + "15",
-    },
-    actionIconMedical: {
-      backgroundColor: "#EC489915",
-    },
-    actionIconWarning: {
-      backgroundColor: colors.warning + "15",
-    },
-    actionIconDanger: {
-      backgroundColor: colors.danger + "15",
-    },
-    actionText: {
-      fontSize: 12,
-      fontWeight: "600",
-      color: colors.text,
-      textAlign: "center",
-      letterSpacing: 0.2,
-    },
-    statsGrid: {
-      flexDirection: "row",
-      gap: 14,
-    },
+    actionIcon: { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center", marginBottom: 10 },
+    actionIconPrimary:  { backgroundColor: colors.primary + "15" },
+    actionIconSuccess:  { backgroundColor: colors.success + "15" },
+    actionIconMedical:  { backgroundColor: "#EC489915" },
+    actionIconWarning:  { backgroundColor: colors.warning + "15" },
+    actionIconDanger:   { backgroundColor: colors.danger  + "15" },
+    actionText: { fontSize: 12, fontWeight: "600", color: colors.text, textAlign: "center", letterSpacing: 0.2 },
+    statsGrid: { flexDirection: "row", gap: 14 },
     statCard: {
-      flex: 1,
-      backgroundColor: colors.card,
-      padding: 20,
-      borderRadius: 20,
-      alignItems: "center",
-      borderWidth: 1,
-      borderColor: colors.borderLight,
+      flex: 1, backgroundColor: colors.card, padding: 20, borderRadius: 20,
+      alignItems: "center", borderWidth: 1, borderColor: colors.borderLight,
       ...Platform.select({
-        ios: {
-          shadowColor: colors.shadow,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.1,
-          shadowRadius: 12,
-        },
-        android: {
-          elevation: 4,
-        },
+        ios: { shadowColor: colors.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12 },
+        android: { elevation: 4 },
       }),
     },
-    statIconContainer: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      alignItems: "center",
-      justifyContent: "center",
-      marginBottom: 12,
-    },
-    statIconSuccess: {
-      backgroundColor: colors.success + "15",
-    },
-    statIconPrimary: {
-      backgroundColor: colors.primary + "15",
-    },
-    statIconWarning: {
-      backgroundColor: colors.warning + "15",
-    },
-    statNumber: {
-      fontSize: 22,
-      fontWeight: "700",
-      color: colors.text,
-      marginTop: 4,
-      letterSpacing: -0.5,
-    },
-    statLabel: {
-      fontSize: 12,
-      color: colors.textSecondary,
-      marginTop: 6,
-      fontWeight: "500",
-      letterSpacing: 0.2,
-    },
+    statIconContainer: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", marginBottom: 12 },
+    statIconSuccess: { backgroundColor: colors.success + "15" },
+    statIconPrimary: { backgroundColor: colors.primary + "15" },
+    statIconWarning: { backgroundColor: colors.warning + "15" },
+    statNumber: { fontSize: 22, fontWeight: "700", color: colors.text, marginTop: 4, letterSpacing: -0.5 },
+    statLabel: { fontSize: 12, color: colors.textSecondary, marginTop: 6, fontWeight: "500", letterSpacing: 0.2 },
     txnCard: {
-      flexDirection: "row",
-      backgroundColor: colors.card,
-      padding: 16,
-      borderRadius: 18,
-      marginBottom: 12,
-      alignItems: "center",
-      borderWidth: 1,
-      borderColor: colors.borderLight,
+      flexDirection: "row", backgroundColor: colors.card, padding: 16,
+      borderRadius: 18, marginBottom: 12, alignItems: "center",
+      borderWidth: 1, borderColor: colors.borderLight,
       ...Platform.select({
-        ios: {
-          shadowColor: colors.shadow,
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.06,
-          shadowRadius: 8,
-        },
-        android: {
-          elevation: 2,
-        },
+        ios: { shadowColor: colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 },
+        android: { elevation: 2 },
       }),
     },
-    txnIcon: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      alignItems: "center",
-      justifyContent: "center",
-      marginRight: 14,
-    },
-    txnIconPayment: {
-      backgroundColor: colors.danger + "15",
-    },
-    txnIconRecharge: {
-      backgroundColor: colors.success + "15",
-    },
-    txnInfo: {
-      flex: 1,
-    },
-    txnTitle: {
-      fontSize: 16,
-      fontWeight: "600",
-      color: colors.text,
-      marginBottom: 4,
-      letterSpacing: -0.2,
-    },
-    txnDate: {
-      fontSize: 12,
-      color: colors.textSecondary,
-      fontWeight: "500",
-    },
-    txnAmountContainer: {
-      alignItems: "flex-end",
-    },
-    txnAmount: {
-      fontSize: 18,
-      fontWeight: "700",
-      letterSpacing: -0.3,
-    },
+    txnIcon: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", marginRight: 14 },
+    txnIconPayment:  { backgroundColor: colors.danger  + "15" },
+    txnIconRecharge: { backgroundColor: colors.success + "15" },
+    txnInfo: { flex: 1 },
+    txnTitle: { fontSize: 16, fontWeight: "600", color: colors.text, marginBottom: 4, letterSpacing: -0.2 },
+    txnDate: { fontSize: 12, color: colors.textSecondary, fontWeight: "500" },
+    txnAmountContainer: { alignItems: "flex-end" },
+    txnAmount: { fontSize: 18, fontWeight: "700", letterSpacing: -0.3 },
     emptyState: {
-      alignItems: "center",
-      padding: 48,
-      backgroundColor: colors.card,
-      borderRadius: 24,
-      borderWidth: 1,
-      borderColor: colors.borderLight,
-      marginTop: 8,
+      alignItems: "center", padding: 48, backgroundColor: colors.card,
+      borderRadius: 24, borderWidth: 1, borderColor: colors.borderLight, marginTop: 8,
       ...Platform.select({
-        ios: {
-          shadowColor: colors.shadow,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.08,
-          shadowRadius: 12,
-        },
-        android: {
-          elevation: 3,
-        },
+        ios: { shadowColor: colors.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12 },
+        android: { elevation: 3 },
       }),
     },
-    emptyIconWrap: {
-      width: 88,
-      height: 88,
-      borderRadius: 44,
-      backgroundColor: colors.student + "18",
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    emptyText: {
-      fontSize: 20,
-      color: colors.text,
-      marginTop: 20,
-      fontWeight: "600",
-      letterSpacing: -0.3,
-    },
-    emptySubtext: {
-      fontSize: 15,
-      color: colors.textSecondary,
-      marginTop: 8,
-      textAlign: "center",
-      fontWeight: "500",
-    },
+    emptyIconWrap: { width: 88, height: 88, borderRadius: 44, backgroundColor: colors.student + "18", alignItems: "center", justifyContent: "center" },
+    emptyText: { fontSize: 20, color: colors.text, marginTop: 20, fontWeight: "600", letterSpacing: -0.3 },
+    emptySubtext: { fontSize: 15, color: colors.textSecondary, marginTop: 8, textAlign: "center", fontWeight: "500" },
     emptyButton: {
-      backgroundColor: colors.student,
-      paddingHorizontal: 32,
-      paddingVertical: 16,
-      borderRadius: 16,
-      marginTop: 24,
+      backgroundColor: colors.student, paddingHorizontal: 32, paddingVertical: 16, borderRadius: 16, marginTop: 24,
       ...Platform.select({
-        ios: {
-          shadowColor: colors.student,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.3,
-          shadowRadius: 8,
-        },
-        android: {
-          elevation: 4,
-        },
+        ios: { shadowColor: colors.student, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 },
+        android: { elevation: 4 },
       }),
     },
-    emptyButtonText: {
-      color: "#fff",
-      fontSize: 16,
-      fontWeight: "600",
-      letterSpacing: 0.3,
-    },
-    scrollContent: {
-      paddingBottom: 100,
-    },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: "rgba(0, 0, 0, 0.55)",
-      justifyContent: "center",
-      alignItems: "center",
-      padding: 20,
-    },
+    emptyButtonText: { color: "#fff", fontSize: 16, fontWeight: "600", letterSpacing: 0.3 },
+    scrollContent: { paddingBottom: 100 },
+    modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "center", alignItems: "center", padding: 20 },
     modalContent: {
-      backgroundColor: colors.card,
-      borderRadius: 24,
-      width: "100%",
-      maxWidth: 400,
-      padding: 24,
+      backgroundColor: colors.card, borderRadius: 24, width: "100%", maxWidth: 400, padding: 24,
       ...Platform.select({
-        ios: {
-          shadowColor: colors.shadowDark,
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.3,
-          shadowRadius: 16,
-        },
-        android: {
-          elevation: 12,
-        },
+        ios: { shadowColor: colors.shadowDark, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16 },
+        android: { elevation: 12 },
       }),
     },
-    modalHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      marginBottom: 20,
-      gap: 12,
-    },
-    modalTitle: {
-      fontSize: 22,
-      fontWeight: "700",
-      color: colors.text,
-      flex: 1,
-    },
-    modalCloseBtn: {
-      padding: 4,
-    },
-    modalBody: {
-      marginBottom: 24,
-    },
-    modalMessage: {
-      fontSize: 16,
-      color: colors.text,
-      lineHeight: 24,
-    },
-    modalButton: {
-      backgroundColor: colors.student,
-      paddingVertical: 14,
-      paddingHorizontal: 24,
-      borderRadius: 12,
-      alignItems: "center",
-    },
-    modalButtonText: {
-      color: "#fff",
-      fontSize: 16,
-      fontWeight: "600",
-    },
+    modalHeader: { flexDirection: "row", alignItems: "center", marginBottom: 20, gap: 12 },
+    modalTitle: { fontSize: 22, fontWeight: "700", color: colors.text, flex: 1 },
+    modalCloseBtn: { padding: 4 },
+    modalBody: { marginBottom: 24 },
+    modalMessage: { fontSize: 16, color: colors.text, lineHeight: 24 },
+    modalButton: { backgroundColor: colors.student, paddingVertical: 14, paddingHorizontal: 24, borderRadius: 12, alignItems: "center" },
+    modalButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   });
 }

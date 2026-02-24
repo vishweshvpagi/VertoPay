@@ -1,61 +1,57 @@
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-    Dimensions,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions, Platform, RefreshControl,
+  ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
+import { apiRequest } from '../../utils/api';
 
 export default function MerchantHomeScreen() {
   const { user } = useAuth();
   const { colors } = useTheme();
   const styles = getStyles(colors);
   const router = useRouter();
+
   const [balance, setBalance] = useState(0);
   const [todayEarnings, setTodayEarnings] = useState(0);
   const [todayTransactions, setTodayTransactions] = useState(0);
-  const [recentTransactions, setRecentTransactions] = useState([]);
+  const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
-      if (!user?.email) return;
-      const walletData = await AsyncStorage.getItem(`MERCHANT_WALLET_${user.email}`);
-      
-      if (walletData) {
-        const wallet = JSON.parse(walletData);
-        setBalance(wallet.balance || 0);
-        
-        // Calculate today's earnings
-        const today = new Date().toDateString();
-        const todayTxns = wallet.transactions.filter((t: any) => 
-          new Date(t.date).toDateString() === today
-        );
-        
-        const earnings = todayTxns.reduce((sum: number, t: any) => sum + t.amount, 0);
-        setTodayEarnings(earnings);
-        setTodayTransactions(todayTxns.length);
-        
-        // Get recent transactions (last 5)
-        setRecentTransactions(wallet.transactions.slice(0, 5));
-      }
+      // ✅ Fetch balance from backend
+      const meData = await apiRequest<{ user: any }>('/api/auth/me');
+      setBalance(meData.user?.balance ?? 0);
+
+      // ✅ Fetch transactions from backend
+      const txnData = await apiRequest<{ transactions: any[] }>('/api/transactions/history');
+      const transactions = txnData.transactions || [];
+
+      // Calculate today's stats
+      const today = new Date().toDateString();
+      const todayTxns = transactions.filter((t: any) => {
+        const ts = t.createdAt || t.timestamp || t.qrTimestamp;
+        return ts && new Date(ts).toDateString() === today;
+      });
+
+      const earnings = todayTxns.reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
+      setTodayEarnings(earnings);
+      setTodayTransactions(todayTxns.length);
+
+      // Last 5 transactions
+      setRecentTransactions(transactions.slice(0, 5));
     } catch (error) {
       console.error('Load data error:', error);
     }
-  };
+  }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -63,15 +59,39 @@ export default function MerchantHomeScreen() {
     setRefreshing(false);
   };
 
+  // Helper accessors
+  const getTimestamp = (t: any) =>
+    t.createdAt || t.timestamp || t.qrTimestamp || new Date().toISOString();
+
+  const getStudentName = (t: any) =>
+    t.student?.name || t.student_name || t.studentName || 'Unknown Student';
+
+  const getAmount = (t: any) =>
+    typeof t.amount === 'number' ? t.amount : parseFloat(t.amount) || 0;
+
+  const getTxnId = (t: any) =>
+    t.transactionId || t.transaction_id || t._id || Math.random().toString();
+
+  // Quick actions — only include ones with real routes
+  const quickActions = [
+    { icon: 'scan', label: 'Scan QR', route: '/(merchant)/scan', color: colors.merchant },
+    { icon: 'time', label: 'History', route: '/(merchant)/history', color: colors.primary },
+    { icon: 'receipt', label: 'Transactions', route: '/(merchant)/transactions', color: colors.success },
+    { icon: 'settings', label: 'Settings', route: '/(merchant)/profile', color: colors.textLight },
+    { icon: 'stats-chart', label: 'Analytics', route: '/(merchant)/transactions', color: colors.merchant },
+    { icon: 'wallet', label: 'Wallet', route: '/(merchant)/history', color: colors.primary },
+    { icon: 'help-circle', label: 'Help', route: '/(merchant)/profile', color: colors.success },
+    { icon: 'person', label: 'Profile', route: '/(merchant)/profile', color: colors.warning },
+  ] as const;
+
   return (
-    <ScrollView 
+    <ScrollView
       style={styles.container}
       contentContainerStyle={styles.scrollContent}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       showsVerticalScrollIndicator={false}
     >
+      {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>Welcome back,</Text>
@@ -89,7 +109,7 @@ export default function MerchantHomeScreen() {
           <Ionicons name="wallet" size={24} color={colors.merchant} />
         </View>
         <Text style={styles.balanceAmount}>₹{balance.toFixed(2)}</Text>
-        
+
         <View style={styles.statsRow}>
           <View style={styles.stat}>
             <Text style={styles.statValue}>₹{todayEarnings.toFixed(2)}</Text>
@@ -110,165 +130,18 @@ export default function MerchantHomeScreen() {
           <View style={styles.sectionTitleUnderline} />
         </View>
         <View style={styles.actionsGrid}>
-          <TouchableOpacity 
-            style={styles.actionCard}
-            onPress={() => router.push('/(merchant)/scan')}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: colors.merchant + '20' }]}>
-              <Ionicons name="scan" size={24} color={colors.merchant} />
-            </View>
-            <Text style={styles.actionText}>Scan QR</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.actionCard}
-            onPress={() => router.push('/(merchant)/history')}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: colors.primary + '20' }]}>
-              <Ionicons name="time" size={24} color={colors.primary} />
-            </View>
-            <Text style={styles.actionText}>History</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.actionCard}
-            onPress={() => router.push('/(merchant)/transactions')}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: colors.success + '20' }]}>
-              <Ionicons name="receipt" size={24} color={colors.success} />
-            </View>
-            <Text style={styles.actionText}>Transactions</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.actionCard}
-            onPress={() => router.push('/(merchant)/profile')}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: colors.textLight + '20' }]}>
-              <Ionicons name="settings" size={24} color={colors.textLight} />
-            </View>
-            <Text style={styles.actionText}>Settings</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.actionCard}
-            onPress={() => router.push('/(merchant)/scan')}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: colors.merchant + '20' }]}>
-              <Ionicons name="stats-chart" size={24} color={colors.merchant} />
-            </View>
-            <Text style={styles.actionText}>Analytics</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.actionCard}
-            onPress={() => router.push('/(merchant)/history')}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: colors.primary + '20' }]}>
-              <Ionicons name="wallet" size={24} color={colors.primary} />
-            </View>
-            <Text style={styles.actionText}>Wallet</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.actionCard}
-            onPress={() => router.push('/(merchant)/transactions')}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: colors.success + '20' }]}>
-              <Ionicons name="download" size={24} color={colors.success} />
-            </View>
-            <Text style={styles.actionText}>Export</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.actionCard}
-            onPress={() => router.push('/(merchant)/profile')}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: colors.warning + '20' }]}>
-              <Ionicons name="notifications" size={24} color={colors.warning} />
-            </View>
-            <Text style={styles.actionText}>Alerts</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.actionCard}
-            onPress={() => router.push('/(merchant)/scan')}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: colors.merchant + '20' }]}>
-              <Ionicons name="people" size={24} color={colors.merchant} />
-            </View>
-            <Text style={styles.actionText}>Customers</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.actionCard}
-            onPress={() => router.push('/(merchant)/history')}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: colors.primary + '20' }]}>
-              <Ionicons name="calendar" size={24} color={colors.primary} />
-            </View>
-            <Text style={styles.actionText}>Schedule</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.actionCard}
-            onPress={() => router.push('/(merchant)/transactions')}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: colors.success + '20' }]}>
-              <Ionicons name="help-circle" size={24} color={colors.success} />
-            </View>
-            <Text style={styles.actionText}>Help</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.actionCard}
-            onPress={() => router.push('/(merchant)/profile')}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: colors.danger + '20' }]}>
-              <Ionicons name="shield" size={24} color={colors.danger} />
-            </View>
-            <Text style={styles.actionText}>Security</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.actionCard}
-            onPress={() => router.push('/(merchant)/scan')}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: colors.merchant + '20' }]}>
-              <Ionicons name="card" size={24} color={colors.merchant} />
-            </View>
-            <Text style={styles.actionText}>Payments</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.actionCard}
-            onPress={() => router.push('/(merchant)/history')}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: colors.primary + '20' }]}>
-              <Ionicons name="storefront" size={24} color={colors.primary} />
-            </View>
-            <Text style={styles.actionText}>Store</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.actionCard}
-            onPress={() => router.push('/(merchant)/transactions')}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: colors.success + '20' }]}>
-              <Ionicons name="mail" size={24} color={colors.success} />
-            </View>
-            <Text style={styles.actionText}>Support</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.actionCard}
-            onPress={() => router.push('/(merchant)/profile')}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: colors.textLight + '20' }]}>
-              <Ionicons name="ellipsis-horizontal" size={24} color={colors.textLight} />
-            </View>
-            <Text style={styles.actionText}>More</Text>
-          </TouchableOpacity>
+          {quickActions.map((action) => (
+            <TouchableOpacity
+              key={action.label}
+              style={styles.actionCard}
+              onPress={() => router.push(action.route as any)}
+            >
+              <View style={[styles.actionIcon, { backgroundColor: action.color + '20' }]}>
+                <Ionicons name={action.icon as any} size={24} color={action.color} />
+              </View>
+              <Text style={styles.actionText}>{action.label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
       </View>
 
@@ -297,20 +170,28 @@ export default function MerchantHomeScreen() {
           </View>
         ) : (
           <View style={styles.transactionsList}>
-            {recentTransactions.map((transaction: any) => (
-              <View key={transaction.id} style={styles.transactionCard}>
-                <View style={styles.transactionIcon}>
-                  <Ionicons name="arrow-down" size={20} color={colors.success} />
-                </View>
-                <View style={styles.transactionDetails}>
-                  <Text style={styles.transactionStudent}>{transaction.student}</Text>
-                  <Text style={styles.transactionDate}>
-                    {new Date(transaction.date).toLocaleDateString()} • {new Date(transaction.date).toLocaleTimeString()}
+            {recentTransactions.map((transaction: any) => {
+              const ts = getTimestamp(transaction);
+              return (
+                <View key={getTxnId(transaction)} style={styles.transactionCard}>
+                  <View style={styles.transactionIcon}>
+                    <Ionicons name="arrow-down" size={20} color={colors.success} />
+                  </View>
+                  <View style={styles.transactionDetails}>
+                    <Text style={styles.transactionStudent}>
+                      {getStudentName(transaction)}
+                    </Text>
+                    <Text style={styles.transactionDate}>
+                      {new Date(ts).toLocaleDateString()} •{' '}
+                      {new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                  </View>
+                  <Text style={styles.transactionAmount}>
+                    +₹{getAmount(transaction).toFixed(2)}
                   </Text>
                 </View>
-                <Text style={styles.transactionAmount}>+₹{transaction.amount.toFixed(2)}</Text>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
       </View>
@@ -319,242 +200,61 @@ export default function MerchantHomeScreen() {
 }
 
 const getStyles = (colors: any) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollContent: {
-    paddingBottom: 100,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 24,
-    paddingTop: 60,
-  },
-  greeting: {
-    fontSize: 14,
-    color: colors.textLight,
-  },
-  merchantName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginTop: 4,
-  },
-  badge: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: colors.merchant + '20',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  container: { flex: 1, backgroundColor: colors.background },
+  scrollContent: { paddingBottom: 100 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, paddingTop: 60 },
+  greeting: { fontSize: 14, color: colors.textLight },
+  merchantName: { fontSize: 24, fontWeight: 'bold', color: colors.text, marginTop: 4 },
+  badge: { width: 50, height: 50, borderRadius: 25, backgroundColor: colors.merchant + '20', alignItems: 'center', justifyContent: 'center' },
   balanceCard: {
-    backgroundColor: colors.merchant,
-    marginHorizontal: 24,
-    borderRadius: 20,
-    padding: 24,
-    marginBottom: 24,
+    backgroundColor: colors.merchant, marginHorizontal: 24,
+    borderRadius: 20, padding: 24, marginBottom: 24,
     ...Platform.select({
-      ios: {
-        shadowColor: colors.shadowDark || '#000',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.2,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 8,
-      },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.2, shadowRadius: 12 },
+      android: { elevation: 8 },
     }),
   },
-  balanceHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  balanceLabel: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
-  },
-  balanceAmount: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 20,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 12,
-    padding: 16,
-  },
-  stat: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  divider: {
-    width: 1,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    marginHorizontal: 16,
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.7)',
-    textAlign: 'center',
-  },
-  section: {
-    padding: 24,
-    paddingTop: 0,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitleContainer: {
-    flex: 1,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 6,
-  },
-  sectionTitleUnderline: {
-    width: 40,
-    height: 3,
-    backgroundColor: colors.merchant,
-    borderRadius: 2,
-    opacity: 0.6,
-  },
-  viewAllContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  viewAll: {
-    fontSize: 14,
-    color: colors.merchant,
-    fontWeight: '600',
-  },
-  actionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    justifyContent: 'space-between',
-  },
+  balanceHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  balanceLabel: { fontSize: 14, color: 'rgba(255,255,255,0.8)' },
+  balanceAmount: { fontSize: 36, fontWeight: 'bold', color: '#fff', marginBottom: 20 },
+  statsRow: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12, padding: 16 },
+  stat: { flex: 1, alignItems: 'center' },
+  divider: { width: 1, backgroundColor: 'rgba(255,255,255,0.2)', marginHorizontal: 16 },
+  statValue: { fontSize: 18, fontWeight: 'bold', color: '#fff', marginBottom: 4 },
+  statLabel: { fontSize: 12, color: 'rgba(255,255,255,0.7)', textAlign: 'center' },
+  section: { padding: 24, paddingTop: 0 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  sectionTitleContainer: { flex: 1, marginBottom: 16 },
+  sectionTitle: { fontSize: 20, fontWeight: 'bold', color: colors.text, marginBottom: 6 },
+  sectionTitleUnderline: { width: 40, height: 3, backgroundColor: colors.merchant, borderRadius: 2, opacity: 0.6 },
+  viewAllContainer: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  viewAll: { fontSize: 14, color: colors.merchant, fontWeight: '600' },
+  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between' },
   actionCard: {
     width: (Dimensions.get('window').width - 68) / 4,
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 14,
-    alignItems: 'center',
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.borderLight || colors.border,
+    backgroundColor: colors.card, borderRadius: 16, padding: 14,
+    alignItems: 'center', marginBottom: 12,
+    borderWidth: 1, borderColor: colors.borderLight || colors.border,
     ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow || '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 2,
-      },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 },
+      android: { elevation: 2 },
     }),
   },
-  actionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-  },
-  actionText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.text,
-    textAlign: 'center',
-  },
-  emptyState: {
-    backgroundColor: colors.card,
-    borderRadius: 20,
-    padding: 40,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.borderLight || colors.border,
-  },
-  emptyIconWrap: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.merchant + '18',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-    marginTop: 4,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  transactionsList: {
-    gap: 12,
-  },
+  actionIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  actionText: { fontSize: 11, fontWeight: '600', color: colors.text, textAlign: 'center' },
+  emptyState: { backgroundColor: colors.card, borderRadius: 20, padding: 40, alignItems: 'center', borderWidth: 1, borderColor: colors.borderLight || colors.border },
+  emptyIconWrap: { width: 72, height: 72, borderRadius: 36, backgroundColor: colors.merchant + '18', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  emptyText: { fontSize: 18, fontWeight: '600', color: colors.text, marginTop: 4 },
+  emptySubtext: { fontSize: 14, color: colors.textLight, marginTop: 8, textAlign: 'center' },
+  transactionsList: { gap: 12 },
   transactionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.borderLight || colors.border,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card,
+    borderRadius: 16, padding: 16, marginBottom: 12,
+    borderWidth: 1, borderColor: colors.borderLight || colors.border,
   },
-  transactionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.success + '20',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  transactionDetails: {
-    flex: 1,
-  },
-  transactionStudent: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  transactionDate: {
-    fontSize: 12,
-    color: colors.textLight,
-  },
-  transactionAmount: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.success,
-  },
+  transactionIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.success + '20', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  transactionDetails: { flex: 1 },
+  transactionStudent: { fontSize: 16, fontWeight: '600', color: colors.text, marginBottom: 4 },
+  transactionDate: { fontSize: 12, color: colors.textLight },
+  transactionAmount: { fontSize: 18, fontWeight: 'bold', color: colors.success },
 });

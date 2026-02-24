@@ -1,299 +1,288 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
+  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  RefreshControl, Modal, ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
-import Switch from '../../components/ui/Switch';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiRequest } from '../../utils/api';
 
-export default function ProfileScreen() {
-  const { user, logout } = useAuth();
-  const { colors, theme, toggleTheme } = useTheme();
-  const router = useRouter();
-  const [earnings, setEarnings] = useState(0);
-  const [transactionCount, setTransactionCount] = useState(0);
-  const [todayEarnings, setTodayEarnings] = useState(0);
-
-  useEffect(() => {
-    loadStats();
-  }, []);
-
-  const loadStats = async () => {
-    try {
-      if (user?.email) {
-        const walletData = await AsyncStorage.getItem(`MERCHANT_WALLET_${user.email}`);
-        if (walletData) {
-          const wallet = JSON.parse(walletData);
-          setEarnings(wallet.balance || 0);
-          
-          const transactions = wallet.transactions || [];
-          setTransactionCount(transactions.length);
-          
-          const today = new Date().toDateString();
-          const todayTxns = transactions.filter((t: any) => 
-            new Date(t.timestamp).toDateString() === today
-          );
-          const todayTotal = todayTxns.reduce((sum: number, t: any) => sum + t.amount, 0);
-          setTodayEarnings(todayTotal);
-        }
-      }
-    } catch (error) {
-      console.error('Load stats error:', error);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await AsyncStorage.removeItem('AUTH_TOKEN');
-      await AsyncStorage.removeItem('CURRENT_USER');
-      await logout();
-      router.replace('/(auth)/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
-  };
-
+export default function TransactionsScreen() {
+  const { user } = useAuth();
+  const { colors } = useTheme();
   const styles = getStyles(colors);
 
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [filterType, setFilterType] = useState<'all' | 'today' | 'week'>('all');
+  const [selectedTxn, setSelectedTxn] = useState<any>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+
+  useEffect(() => {
+    loadTransactions();
+  }, []);
+
+  const loadTransactions = useCallback(async () => {
+    setLoading(true);
+    try {
+      // ✅ Fetch from backend
+      const data = await apiRequest<{ transactions: any[] }>('/api/transactions/history');
+      setTransactions(data.transactions || []);
+    } catch (error) {
+      console.error('Load transactions error:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Helper accessors — handle both old AsyncStorage shape and new MongoDB shape
+  const getTimestamp = (t: any) =>
+    t.createdAt || t.timestamp || t.qrTimestamp || new Date().toISOString();
+
+  const getTxnId = (t: any) =>
+    t.transactionId || t.transaction_id || t._id || 'N/A';
+
+  const getStudentName = (t: any) =>
+    t.student?.name || t.student_name || t.studentName || 'Unknown Student';
+
+  const getStudentId = (t: any) =>
+    t.student?.studentId || t.student_id || t.studentId || 'N/A';
+
+  const getAmount = (t: any) =>
+    typeof t.amount === 'number' ? t.amount : parseFloat(t.amount) || 0;
+
+  const getFilteredTransactions = () => {
+    if (filterType === 'all') return transactions;
+    const now = new Date();
+    return transactions.filter((t) => {
+      const txnDate = new Date(getTimestamp(t));
+      if (filterType === 'today') return txnDate.toDateString() === now.toDateString();
+      if (filterType === 'week') {
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        return txnDate >= weekAgo;
+      }
+      return true;
+    });
+  };
+
+  const filteredTransactions = getFilteredTransactions();
+  const totalEarnings = filteredTransactions.reduce((sum, t) => sum + getAmount(t), 0);
+
+  const showDetails = (txn: any) => {
+    setSelectedTxn(txn);
+    setModalVisible(true);
+  };
+
+  const renderTransaction = ({ item }: { item: any }) => (
+    <TouchableOpacity style={styles.txnCard} onPress={() => showDetails(item)} activeOpacity={0.7}>
+      <View style={styles.txnIcon}>
+        <Ionicons name="person" size={24} color={colors.success} />
+      </View>
+      <View style={styles.txnInfo}>
+        <Text style={styles.txnTitle}>{getStudentName(item)}</Text>
+        <Text style={styles.txnDate}>
+          {new Date(getTimestamp(item)).toLocaleDateString()} •{' '}
+          {new Date(getTimestamp(item)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </Text>
+        <Text style={styles.txnId}>ID: {getTxnId(item)}</Text>
+      </View>
+      <View style={styles.txnRight}>
+        <Text style={styles.txnAmount}>+₹{getAmount(item).toFixed(2)}</Text>
+        <View style={styles.statusBadge}>
+          <Text style={styles.statusText}>
+            {(item.status || 'completed').toUpperCase()}
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: colors.merchant }]}>
-        <Text style={styles.title}>Profile</Text>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Transactions</Text>
+        <Text style={styles.subtitle}>
+          {filteredTransactions.length} transactions • ₹{totalEarnings.toFixed(2)}
+        </Text>
       </View>
 
-      {/* Profile Card */}
-      <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={[styles.avatar, { backgroundColor: colors.merchant }]}>
-          <Ionicons name="storefront" size={48} color="#fff" />
-        </View>
-        <Text style={[styles.name, { color: colors.text }]}>{user?.merchantName}</Text>
-        <Text style={[styles.email, { color: colors.textLight }]}>{user?.email}</Text>
-        <View style={[styles.merchantIdBadge, { backgroundColor: colors.merchant + '20' }]}>
-          <Ionicons name="card" size={16} color={colors.merchant} />
-          <Text style={[styles.merchantIdText, { color: colors.merchant }]}>{user?.merchantId}</Text>
-        </View>
+      {/* Filter Tabs */}
+      <View style={styles.filterContainer}>
+        {([
+          { key: 'all', label: 'All Time', icon: null },
+          { key: 'today', label: 'Today', icon: 'today' },
+          { key: 'week', label: 'This Week', icon: 'calendar' },
+        ] as const).map(({ key, label, icon }) => (
+          <TouchableOpacity
+            key={key}
+            style={[styles.filterTab, filterType === key && styles.filterTabActive]}
+            onPress={() => setFilterType(key)}
+          >
+            {icon && (
+              <Ionicons
+                name={icon}
+                size={14}
+                color={filterType === key ? '#fff' : colors.primary}
+              />
+            )}
+            <Text style={[styles.filterText, filterType === key && styles.filterTextActive]}>
+              {label}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
-      {/* Stats */}
-      <View style={styles.statsContainer}>
-        <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Ionicons name="cash" size={28} color={colors.success} />
-          <Text style={[styles.statNumber, { color: colors.text }]}>₹{earnings.toFixed(0)}</Text>
-          <Text style={[styles.statLabel, { color: colors.textLight }]}>Total Earnings</Text>
-        </View>
+      <FlatList
+        data={filteredTransactions}
+        renderItem={renderTransaction}
+        keyExtractor={(item, index) => getTxnId(item) + index}
+        contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={loadTransactions}
+            colors={[colors.merchant]}
+          />
+        }
+        ListEmptyComponent={
+          loading ? (
+            <View style={styles.emptyState}>
+              <ActivityIndicator size="large" color={colors.merchant} />
+            </View>
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons name="receipt-outline" size={64} color={colors.textLight} />
+              <Text style={styles.emptyText}>No transactions found</Text>
+              <Text style={styles.emptySubtext}>
+                {filterType === 'all'
+                  ? 'Start scanning student QR codes'
+                  : `No transactions ${filterType === 'today' ? 'today' : 'this week'}`}
+              </Text>
+            </View>
+          )
+        }
+      />
 
-        <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Ionicons name="calendar" size={28} color={colors.primary} />
-          <Text style={[styles.statNumber, { color: colors.text }]}>₹{todayEarnings.toFixed(0)}</Text>
-          <Text style={[styles.statLabel, { color: colors.textLight }]}>Today</Text>
-        </View>
+      {/* Transaction Details Modal */}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Transaction Details</Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
 
-        <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Ionicons name="receipt" size={28} color={colors.warning} />
-          <Text style={[styles.statNumber, { color: colors.text }]}>{transactionCount}</Text>
-          <Text style={[styles.statLabel, { color: colors.textLight }]}>Transactions</Text>
-        </View>
-      </View>
+            {selectedTxn && (
+              <>
+                <View style={styles.modalIcon}>
+                  <Ionicons name="checkmark-circle" size={40} color={colors.success} />
+                </View>
 
-      {/* Menu Options */}
-      <View style={styles.section}>
-        <TouchableOpacity 
-          style={[styles.menuItem, { backgroundColor: colors.card, borderColor: colors.border }]}
-          onPress={() => router.push('/(merchant)/transactions')}
-        >
-          <View style={[styles.menuIcon, { backgroundColor: colors.background }]}>
-            <Ionicons name="time" size={24} color={colors.primary} />
+                <Text style={styles.modalAmount}>
+                  +₹{getAmount(selectedTxn).toFixed(2)}
+                </Text>
+
+                <View style={styles.studentCard}>
+                  <View style={styles.studentAvatar}>
+                    <Ionicons name="person" size={24} color="#fff" />
+                  </View>
+                  <View>
+                    <Text style={styles.studentName}>{getStudentName(selectedTxn)}</Text>
+                    <Text style={styles.studentId}>ID: {getStudentId(selectedTxn)}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Transaction ID</Text>
+                  <Text style={styles.detailValue}>{getTxnId(selectedTxn)}</Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Date & Time</Text>
+                  <Text style={styles.detailValue}>
+                    {new Date(getTimestamp(selectedTxn)).toLocaleString()}
+                  </Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Status</Text>
+                  <View style={styles.detailStatusBadge}>
+                    <Text style={styles.detailStatusText}>
+                      {(selectedTxn.status || 'completed').toUpperCase()}
+                    </Text>
+                  </View>
+                </View>
+              </>
+            )}
           </View>
-          <Text style={[styles.menuText, { color: colors.text }]}>Transaction History</Text>
-          <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.menuItem, { backgroundColor: colors.card, borderColor: colors.border }]}
-          onPress={() => router.push('/(merchant)/scan')}
-        >
-          <View style={[styles.menuIcon, { backgroundColor: colors.background }]}>
-            <Ionicons name="scan" size={24} color={colors.merchant} />
-          </View>
-          <Text style={[styles.menuText, { color: colors.text }]}>Scan QR Code</Text>
-          <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
-        </TouchableOpacity>
-
-        <View style={[styles.menuItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={[styles.menuIcon, { backgroundColor: colors.background }]}>
-            <Ionicons name={theme === 'dark' ? 'moon' : 'sunny'} size={24} color={colors.warning} />
-          </View>
-          <Text style={[styles.menuText, { color: colors.text }]}>Dark Mode</Text>
-          <Switch value={theme === 'dark'} onValueChange={() => toggleTheme()} />
         </View>
-
-        <TouchableOpacity 
-          style={[styles.menuItem, { backgroundColor: colors.card, borderColor: colors.border }]}
-          onPress={() => Alert.alert('Help & Support', 'Contact support at support@vertopay.com')}
-        >
-          <View style={[styles.menuIcon, { backgroundColor: colors.background }]}>
-            <Ionicons name="help-circle" size={24} color={colors.admin} />
-          </View>
-          <Text style={[styles.menuText, { color: colors.text }]}>Help & Support</Text>
-          <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.menuItem, { backgroundColor: colors.card, borderColor: colors.border }]}
-          onPress={() => Alert.alert('About', 'VertoPay Merchant v1.0.0\n\nCampus Digital Payment System')}
-        >
-          <View style={[styles.menuIcon, { backgroundColor: colors.background }]}>
-            <Ionicons name="information-circle" size={24} color={colors.textLight} />
-          </View>
-          <Text style={[styles.menuText, { color: colors.text }]}>About</Text>
-          <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Logout Button */}
-      <View style={styles.section}>
-        <TouchableOpacity 
-          style={[styles.logoutButton, { backgroundColor: colors.danger + '15', borderColor: colors.danger }]} 
-          onPress={handleLogout}
-        >
-          <Ionicons name="log-out" size={24} color={colors.danger} />
-          <Text style={[styles.logoutText, { color: colors.danger }]}>Logout</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* App Info */}
-      <View style={styles.footer}>
-        <Text style={[styles.footerText, { color: colors.textLight }]}>VertoPay Merchant v1.0.0</Text>
-        <Text style={[styles.footerText, { color: colors.textLight }]}>Secure Campus Payment System</Text>
-      </View>
-    </ScrollView>
+      </Modal>
+    </View>
   );
 }
 
 const getStyles = (colors: any) => StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1, backgroundColor: colors.background },
+  header: { padding: 20, paddingTop: 60, backgroundColor: colors.merchant },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#fff' },
+  subtitle: { fontSize: 14, color: '#fff', opacity: 0.9, marginTop: 4 },
+  filterContainer: { flexDirection: 'row', padding: 16, gap: 8 },
+  filterTab: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.card, padding: 10, borderRadius: 12, gap: 6,
+    borderWidth: 1, borderColor: colors.border,
   },
-  header: {
-    padding: 20,
-    paddingTop: 60,
+  filterTabActive: { backgroundColor: colors.merchant, borderColor: colors.merchant },
+  filterText: { fontSize: 13, fontWeight: '600', color: colors.text },
+  filterTextActive: { color: '#fff' },
+  list: { padding: 16, paddingTop: 0 },
+  txnCard: {
+    flexDirection: 'row', backgroundColor: colors.card, padding: 14,
+    borderRadius: 16, marginBottom: 10, borderWidth: 1, borderColor: colors.border,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
+  txnIcon: {
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: colors.success + '20',
+    alignItems: 'center', justifyContent: 'center', marginRight: 12,
   },
-  profileCard: {
-    margin: 20,
-    padding: 24,
-    borderRadius: 20,
-    alignItems: 'center',
-    borderWidth: 1,
+  txnInfo: { flex: 1 },
+  txnTitle: { fontSize: 16, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
+  txnDate: { fontSize: 12, color: colors.textLight, marginBottom: 2 },
+  txnId: { fontSize: 10, color: colors.textLight, fontFamily: 'monospace' },
+  txnRight: { alignItems: 'flex-end' },
+  txnAmount: { fontSize: 20, fontWeight: 'bold', color: colors.success, marginBottom: 6 },
+  statusBadge: { backgroundColor: colors.success + '20', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  statusText: { fontSize: 10, fontWeight: 'bold', color: colors.success },
+  emptyState: { alignItems: 'center', padding: 60 },
+  emptyText: { fontSize: 18, color: colors.textLight, marginTop: 16, fontWeight: '600' },
+  emptySubtext: { fontSize: 14, color: colors.textLight, marginTop: 8, textAlign: 'center' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
+  modalContent: { backgroundColor: colors.card, borderRadius: 20, padding: 24 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: colors.text },
+  modalIcon: {
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: colors.success + '20',
+    alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 16,
   },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
+  modalAmount: { fontSize: 36, fontWeight: 'bold', color: colors.success, textAlign: 'center', marginBottom: 24 },
+  studentCard: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: colors.background, padding: 12,
+    borderRadius: 12, marginBottom: 20, gap: 12,
   },
-  name: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  email: {
-    fontSize: 14,
-    marginBottom: 12,
-  },
-  merchantIdBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 6,
-  },
-  merchantIdText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  statNumber: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 8,
-  },
-  statLabel: {
-    fontSize: 11,
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  section: {
-    padding: 20,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 10,
-    borderWidth: 1,
-  },
-  menuIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  menuText: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 12,
-    gap: 10,
-    borderWidth: 1,
-  },
-  logoutText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  footer: {
-    alignItems: 'center',
-    padding: 20,
-    paddingBottom: 40,
-  },
-  footerText: {
-    fontSize: 12,
-    marginTop: 4,
-  },
+  studentAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.student, alignItems: 'center', justifyContent: 'center' },
+  studentName: { fontSize: 16, fontWeight: 'bold', color: colors.text },
+  studentId: { fontSize: 12, color: colors.textLight, marginTop: 2 },
+  detailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+  detailLabel: { fontSize: 14, color: colors.textLight, fontWeight: '500' },
+  detailValue: { fontSize: 14, color: colors.text, fontWeight: '600', maxWidth: '60%', textAlign: 'right' },
+  detailStatusBadge: { backgroundColor: colors.success + '20', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8 },
+  detailStatusText: { fontSize: 12, fontWeight: 'bold', color: colors.success },
 });
