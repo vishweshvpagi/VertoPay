@@ -1,396 +1,194 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
+  ActivityIndicator,
   RefreshControl,
-  TouchableOpacity,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useAdmin, useTheme } from '../../hooks';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
+import { useTheme } from "../../hooks/useTheme";
+import { apiRequest } from "../../utils/api";
 
-export default function AuditScreen() {
-  const { getAdminActions } = useAdmin();
+export default function AdminAuditScreen() {
   const { colors } = useTheme();
-  const styles = getStyles(colors);
-  const [actions, setActions] = useState<any[]>([]);
+  const adminColor = colors.admin || colors.primary;
+  const styles = getStyles(colors, adminColor);
+
+  const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [filterType, setFilterType] = useState<'all' | 'BLOCK_USER' | 'UNBLOCK_USER' | 'REVERSE_TRANSACTION' | 'MARK_FRAUD' | 'CLEAR_FRAUD'>('all');
-  const [filteredActions, setFilteredActions] = useState<any[]>([]);
-  const [stats, setStats] = useState({
-    totalActions: 0,
-    blocks: 0,
-    unblocks: 0,
-    reversals: 0,
-    fraudMarks: 0,
-  });
 
-  useEffect(() => {
-    loadAuditLog();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadAudit();
+    }, []),
+  );
 
-  useEffect(() => {
-    filterActions();
-    calculateStats();
-  }, [actions, filterType]);
-
-  const loadAuditLog = async () => {
+  const loadAudit = async () => {
     setLoading(true);
     try {
-      const log = await getAdminActions();
-      setActions(log);
-    } catch (error) {
-      console.error('Load audit log error:', error);
+      // Build audit log from transactions + recharge requests
+      const [txnData, rechData] = await Promise.all([
+        apiRequest<{ transactions: any[] }>("/api/admin/transactions"),
+        apiRequest<{ requests: any[] }>(
+          "/api/admin/recharge-requests?status=approved",
+        ),
+      ]);
+
+      const txnEvents = (txnData.transactions || []).map((t: any) => ({
+        id: t._id,
+        type: t.type === "recharge" ? "WALLET_RECHARGE" : "PAYMENT",
+        actor: t.student?.name || "Student",
+        target:
+          t.merchant?.shopName || (t.type === "recharge" ? "Wallet" : "—"),
+        amount: t.amount,
+        status: t.status,
+        timestamp: t.createdAt || t.qrTimestamp,
+        icon: t.type === "recharge" ? "wallet" : "card",
+        color: t.type === "recharge" ? colors.success : colors.primary,
+      }));
+
+      const rechEvents = (rechData.requests || []).map((r: any) => ({
+        id: r._id,
+        type: "RECHARGE_APPROVED",
+        actor: "Admin",
+        target: r.student?.name || "Student",
+        amount: r.amount,
+        status: "approved",
+        timestamp: r.reviewedAt || r.createdAt,
+        icon: "checkmark-circle",
+        color: colors.success,
+      }));
+
+      const all = [...txnEvents, ...rechEvents]
+        .sort(
+          (a, b) =>
+            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+        )
+        .slice(0, 100);
+
+      setEvents(all);
+    } catch (e) {
+      console.error(e);
     } finally {
       setLoading(false);
     }
   };
 
-  const filterActions = () => {
-    if (filterType === 'all') {
-      setFilteredActions(actions);
-    } else {
-      setFilteredActions(actions.filter(a => a.actionType === filterType));
-    }
-  };
-
-  const calculateStats = () => {
-    const blocks = actions.filter(a => a.actionType === 'BLOCK_USER').length;
-    const unblocks = actions.filter(a => a.actionType === 'UNBLOCK_USER').length;
-    const reversals = actions.filter(a => a.actionType === 'REVERSE_TRANSACTION').length;
-    const fraudMarks = actions.filter(a => a.actionType === 'MARK_FRAUD').length;
-
-    setStats({
-      totalActions: actions.length,
-      blocks,
-      unblocks,
-      reversals,
-      fraudMarks,
-    });
-  };
-
-  const getActionIcon = (actionType: string) => {
-    switch (actionType) {
-      case 'BLOCK_USER':
-        return { name: 'ban', color: colors.danger };
-      case 'UNBLOCK_USER':
-        return { name: 'checkmark-circle', color: colors.success };
-      case 'REVERSE_TRANSACTION':
-        return { name: 'refresh', color: colors.warning };
-      case 'MARK_FRAUD':
-        return { name: 'warning', color: colors.danger };
-      case 'CLEAR_FRAUD':
-        return { name: 'shield-checkmark', color: colors.success };
-      default:
-        return { name: 'information-circle', color: colors.primary };
-    }
-  };
-
-  const getActionTitle = (actionType: string) => {
-    return actionType.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
-  };
-
-  const renderAction = ({ item }: { item: any }) => {
-    const icon = getActionIcon(item.actionType);
-
-    return (
-      <View style={styles.actionCard}>
-        <View style={[styles.actionIconContainer, { backgroundColor: icon.color + '20' }]}>
-          <Ionicons name={icon.name as any} size={24} color={icon.color} />
-        </View>
-
-        <View style={styles.actionContent}>
-          <View style={styles.actionHeader}>
-            <Text style={styles.actionTitle}>{getActionTitle(item.actionType)}</Text>
-            <Text style={styles.actionTime}>
-              {new Date(item.createdAt).toLocaleTimeString([], { 
-                hour: '2-digit', 
-                minute: '2-digit' 
-              })}
-            </Text>
-          </View>
-
-          <Text style={styles.actionAdmin}>👤 Admin: {item.adminEmail}</Text>
-
-          {item.targetEmail && (
-            <View style={styles.targetInfo}>
-              <Ionicons name="person" size={14} color={colors.textLight} />
-              <Text style={styles.actionTarget}>User: {item.targetEmail}</Text>
-            </View>
-          )}
-
-          {item.targetTransactionId && (
-            <View style={styles.targetInfo}>
-              <Ionicons name="receipt" size={14} color={colors.textLight} />
-              <Text style={styles.actionTarget}>Txn: {item.targetTransactionId}</Text>
-            </View>
-          )}
-
-          <View style={styles.reasonContainer}>
-            <Ionicons name="document-text" size={14} color={colors.primary} />
-            <Text style={styles.actionReason}>{item.reason}</Text>
-          </View>
-
-          <Text style={styles.actionDate}>
-            📅 {new Date(item.createdAt).toLocaleDateString()} at {new Date(item.createdAt).toLocaleTimeString()}
+  const renderItem = ({ item }: { item: any }) => (
+    <View style={styles.card}>
+      <View style={[styles.iconBox, { backgroundColor: item.color + "20" }]}>
+        <Ionicons name={item.icon as any} size={20} color={item.color} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.cardType}>{item.type}</Text>
+        <Text style={styles.cardDetail}>
+          {item.actor} → {item.target}
+        </Text>
+        <Text style={styles.cardTs}>
+          {item.timestamp
+            ? new Date(item.timestamp).toLocaleString("en-IN")
+            : "—"}
+        </Text>
+      </View>
+      <View style={{ alignItems: "flex-end" }}>
+        {item.amount != null && (
+          <Text style={[styles.cardAmount, { color: item.color }]}>
+            ₹{(item.amount || 0).toFixed(0)}
+          </Text>
+        )}
+        <View
+          style={[
+            styles.statusBadge,
+            { backgroundColor: colors.success + "20" },
+          ]}
+        >
+          <Text style={[styles.statusText, { color: colors.success }]}>
+            {(item.status || "").toUpperCase()}
           </Text>
         </View>
       </View>
-    );
-  };
+    </View>
+  );
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Audit Log</Text>
-        <Text style={styles.subtitle}>{filteredActions.length} admin actions</Text>
-      </View>
-
-      {/* Stats Cards */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{stats.totalActions}</Text>
-          <Text style={styles.statLabel}>Total</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{stats.blocks}</Text>
-          <Text style={styles.statLabel}>Blocks</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{stats.reversals}</Text>
-          <Text style={styles.statLabel}>Reversals</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{stats.fraudMarks}</Text>
-          <Text style={styles.statLabel}>Fraud</Text>
-        </View>
-      </View>
-
-      {/* Filter Chips */}
-      <View style={styles.filterContainer}>
-        <TouchableOpacity
-          style={[styles.filterChip, filterType === 'all' && styles.filterChipActive]}
-          onPress={() => setFilterType('all')}
-        >
-          <Text style={[styles.filterText, filterType === 'all' && styles.filterTextActive]}>
-            All
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterChip, filterType === 'BLOCK_USER' && styles.filterChipActive]}
-          onPress={() => setFilterType('BLOCK_USER')}
-        >
-          <Ionicons name="ban" size={14} color={filterType === 'BLOCK_USER' ? '#fff' : colors.danger} />
-          <Text style={[styles.filterText, filterType === 'BLOCK_USER' && styles.filterTextActive]}>
-            Blocks
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterChip, filterType === 'REVERSE_TRANSACTION' && styles.filterChipActive]}
-          onPress={() => setFilterType('REVERSE_TRANSACTION')}
-        >
-          <Ionicons name="refresh" size={14} color={filterType === 'REVERSE_TRANSACTION' ? '#fff' : colors.warning} />
-          <Text style={[styles.filterText, filterType === 'REVERSE_TRANSACTION' && styles.filterTextActive]}>
-            Reversals
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterChip, filterType === 'MARK_FRAUD' && styles.filterChipActive]}
-          onPress={() => setFilterType('MARK_FRAUD')}
-        >
-          <Ionicons name="warning" size={14} color={filterType === 'MARK_FRAUD' ? '#fff' : colors.danger} />
-          <Text style={[styles.filterText, filterType === 'MARK_FRAUD' && styles.filterTextActive]}>
-            Fraud
-          </Text>
-        </TouchableOpacity>
+        <Text style={styles.subtitle}>Last {events.length} events</Text>
       </View>
 
       <FlatList
-        data={filteredActions}
-        renderItem={renderAction}
-        keyExtractor={(item) => item.id}
+        data={events}
+        renderItem={renderItem}
+        keyExtractor={(item, i) => item.id || String(i)}
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={loadAuditLog} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={loadAudit}
+            colors={[adminColor]}
+          />
+        }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="document-text-outline" size={64} color={colors.textLight} />
-            <Text style={styles.emptyText}>No admin actions yet</Text>
-            <Text style={styles.emptySubtext}>Actions will appear here as they occur</Text>
-          </View>
+          loading ? (
+            <View style={styles.empty}>
+              <ActivityIndicator size="large" color={adminColor} />
+            </View>
+          ) : (
+            <View style={styles.empty}>
+              <Ionicons
+                name="document-text-outline"
+                size={64}
+                color={colors.textLight}
+              />
+              <Text style={styles.emptyText}>No audit events yet</Text>
+            </View>
+          )
         }
       />
     </View>
   );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    padding: 20,
-    paddingTop: 60,
-    backgroundColor: colors.card,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: colors.textLight,
-    marginTop: 4,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    padding: 16,
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: colors.card,
-    padding: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: colors.textLight,
-    marginTop: 4,
-  },
-  filterContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    marginBottom: 12,
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: colors.card,
-    gap: 4,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  filterChipActive: {
-    backgroundColor: colors.admin,
-    borderColor: colors.admin,
-  },
-  filterText: {
-    fontSize: 12,
-    color: colors.text,
-    fontWeight: '500',
-  },
-  filterTextActive: {
-    color: '#fff',
-  },
-  list: {
-    padding: 16,
-    paddingTop: 4,
-  },
-  actionCard: {
-    flexDirection: 'row',
-    backgroundColor: colors.card,
-    padding: 14,
-    borderRadius: 16,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  actionIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  actionContent: {
-    flex: 1,
-  },
-  actionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  actionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  actionTime: {
-    fontSize: 12,
-    color: colors.textLight,
-    fontWeight: '600',
-  },
-  actionAdmin: {
-    fontSize: 13,
-    color: colors.textLight,
-    marginBottom: 6,
-  },
-  targetInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  actionTarget: {
-    fontSize: 12,
-    color: colors.textLight,
-  },
-  reasonContainer: {
-    flexDirection: 'row',
-    backgroundColor: colors.primary + '10',
-    padding: 8,
-    borderRadius: 8,
-    marginTop: 6,
-    marginBottom: 6,
-    gap: 6,
-    alignItems: 'flex-start',
-  },
-  actionReason: {
-    flex: 1,
-    fontSize: 12,
-    color: colors.text,
-    lineHeight: 18,
-  },
-  actionDate: {
-    fontSize: 11,
-    color: colors.textLight,
-    marginTop: 4,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 100,
-  },
-  emptyText: {
-    fontSize: 18,
-    color: colors.textLight,
-    marginTop: 16,
-    fontWeight: '600',
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: colors.textLight,
-    marginTop: 8,
-  },
-});
+const getStyles = (colors: any, adminColor: string) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    header: { padding: 20, paddingTop: 60, backgroundColor: adminColor },
+    title: { fontSize: 28, fontWeight: "bold", color: "#fff" },
+    subtitle: { fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: 4 },
+    list: { padding: 16 },
+    card: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 14,
+      marginBottom: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 12,
+    },
+    iconBox: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    cardType: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: colors.text,
+      marginBottom: 3,
+    },
+    cardDetail: { fontSize: 12, color: colors.textLight },
+    cardTs: { fontSize: 11, color: colors.textLight, marginTop: 2 },
+    cardAmount: { fontSize: 16, fontWeight: "bold", marginBottom: 4 },
+    statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+    statusText: { fontSize: 10, fontWeight: "bold" },
+    empty: { padding: 60, alignItems: "center" },
+    emptyText: { fontSize: 16, color: colors.textLight, marginTop: 16 },
+  });

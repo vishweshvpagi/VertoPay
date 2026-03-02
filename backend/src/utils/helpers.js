@@ -1,20 +1,17 @@
-const jwt = require('jsonwebtoken');
+const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 
-// Generate JWT token
 const generateToken = (id, role) => {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET, {
-    expiresIn: '30d'
-  });
+  if (!process.env.JWT_SECRET) {
+    throw new Error("JWT_SECRET is not defined in environment variables");
+  }
+  return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "30d" });
 };
 
-// Generate random ID
-const generateId = (prefix) => {
-  const timestamp = Date.now().toString().slice(-6);
-  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `${prefix}${timestamp}${random}`;
+// Generates unique IDs like STU_A3F9B2, MER_C1D4E8
+const generateId = (prefix = "ID") => {
+  const rand = crypto.randomBytes(4).toString("hex").toUpperCase();
+  return `${prefix}_${rand}`;
 };
 
-module.exports = {
-  generateToken,
-  generateId
-};
+module.exports = { generateToken, generateId };

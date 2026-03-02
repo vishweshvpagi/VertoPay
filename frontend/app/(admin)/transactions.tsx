@@ -1,227 +1,127 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Alert,
+  ActivityIndicator,
   RefreshControl,
   Modal,
   TextInput,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useAuth, useAdmin } from '../../hooks';
-import { Transaction } from '../../contexts/WalletContext';
-import { MERCHANT_CATEGORIES } from '../../constants/Config';
-import { useTheme } from '../../hooks/useTheme';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
+import { useTheme } from "../../hooks/useTheme";
+import { apiRequest } from "../../utils/api";
 
-export default function TransactionsScreen() {
-  const { user } = useAuth();
-  const { getAllTransactions, reverseTransaction } = useAdmin();
+export default function AdminTransactionsScreen() {
   const { colors } = useTheme();
-  const styles = getStyles(colors);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
+  const adminColor = colors.admin || colors.primary;
+  const styles = getStyles(colors, adminColor);
+
+  const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [filterType, setFilterType] = useState<'all' | 'payment' | 'recharge' | 'reversal'>('all');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'completed' | 'reversed'>('all');
-  const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
-  const [reverseModalVisible, setReverseModalVisible] = useState(false);
-  const [detailsModalVisible, setDetailsModalVisible] = useState(false);
-  const [reversalReason, setReversalReason] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [stats, setStats] = useState({
-    totalTransactions: 0,
-    totalVolume: 0,
-    completedCount: 0,
-    reversedCount: 0,
-    avgAmount: 0,
-  });
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"all" | "payment" | "recharge">("all");
+  const [selected, setSelected] = useState<any>(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
-  useEffect(() => {
-    loadTransactions();
-  }, []);
-
-  useEffect(() => {
-    filterTransactions();
-    calculateStats();
-  }, [transactions, filterType, filterStatus, searchQuery]);
+  useFocusEffect(
+    useCallback(() => {
+      loadTransactions();
+    }, []),
+  );
 
   const loadTransactions = async () => {
     setLoading(true);
     try {
-      const allTxns = await getAllTransactions();
-      setTransactions(allTxns);
-    } catch (error) {
-      console.error('Load transactions error:', error);
+      const data = await apiRequest<{ transactions: any[] }>(
+        "/api/admin/transactions",
+      );
+      setTransactions(data.transactions || []);
+    } catch (e) {
+      console.error(e);
     } finally {
       setLoading(false);
     }
   };
 
-  const filterTransactions = () => {
-    let filtered = [...transactions];
+  const filtered = transactions.filter((t) => {
+    const matchFilter =
+      filter === "all" ||
+      (filter === "payment" && t.type === "payment") ||
+      (filter === "recharge" && t.type === "recharge");
+    const q = search.toLowerCase();
+    const matchSearch =
+      !search ||
+      t.transactionId?.toLowerCase().includes(q) ||
+      t.student?.name?.toLowerCase().includes(q) ||
+      t.merchant?.shopName?.toLowerCase().includes(q);
+    return matchFilter && matchSearch;
+  });
 
-    if (filterType !== 'all') {
-      filtered = filtered.filter(t => t.type === filterType);
-    }
+  const totalAmount = filtered
+    .filter((t) => t.type === "payment" && t.status === "completed")
+    .reduce((s, t) => s + (t.amount || 0), 0);
 
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter(t => t.status === filterStatus);
-    }
-
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(t =>
-        t.transaction_id.toLowerCase().includes(query) ||
-        t.student_id.toLowerCase().includes(query) ||
-        t.merchant_id.toLowerCase().includes(query) ||
-        t.student_name?.toLowerCase().includes(query)
-      );
-    }
-
-    setFilteredTransactions(filtered);
-  };
-
-  const calculateStats = () => {
-    const completed = transactions.filter(t => t.status === 'completed' && t.type === 'payment');
-    const reversed = transactions.filter(t => t.status === 'reversed');
-    const totalVol = completed.reduce((sum, t) => sum + t.amount, 0);
-    const avg = completed.length > 0 ? totalVol / completed.length : 0;
-
-    setStats({
-      totalTransactions: transactions.length,
-      totalVolume: totalVol,
-      completedCount: completed.length,
-      reversedCount: reversed.length,
-      avgAmount: avg,
-    });
-  };
-
-  const handleReverseTransaction = (txn: Transaction) => {
-    if (txn.status === 'reversed') {
-      Alert.alert('Error', 'Transaction already reversed');
-      return;
-    }
-
-    if (txn.type !== 'payment') {
-      Alert.alert('Error', 'Can only reverse payment transactions');
-      return;
-    }
-
-    setSelectedTxn(txn);
-    setReverseModalVisible(true);
-  };
-
-  const confirmReversal = async () => {
-    if (!selectedTxn || !reversalReason.trim()) {
-      Alert.alert('Error', 'Please enter a reason');
-      return;
-    }
-
-    try {
-      await reverseTransaction(selectedTxn.transaction_id, reversalReason, user?.email || 'admin');
-      setReverseModalVisible(false);
-      setReversalReason('');
-      setSelectedTxn(null);
-      loadTransactions();
-      Alert.alert('✅ Success', 'Transaction reversed successfully');
-    } catch (error: any) {
-      Alert.alert('Error', error.message);
-    }
-  };
-
-  const showTransactionDetails = (txn: Transaction) => {
-    setSelectedTxn(txn);
-    setDetailsModalVisible(true);
-  };
-
-  const getRiskColor = (score?: number) => {
-    if (!score) return colors.success;
-    if (score >= 60) return colors.danger;
-    if (score >= 30) return colors.warning;
-    return colors.success;
-  };
-
-  const renderTransaction = ({ item }: { item: Transaction }) => {
-    const merchantName = item.merchant_id === 'WALLET_RECHARGE' 
-      ? 'Wallet Recharge' 
-      : MERCHANT_CATEGORIES[item.merchant_id] || item.merchant_id;
-
+  const renderItem = ({ item }: { item: any }) => {
+    const isRecharge = item.type === "recharge";
+    const ts = item.createdAt || item.qrTimestamp;
     return (
-      <TouchableOpacity 
-        style={styles.txnCard}
-        onPress={() => showTransactionDetails(item)}
-        activeOpacity={0.7}
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => {
+          setSelected(item);
+          setModalVisible(true);
+        }}
       >
-        <View style={styles.txnHeader}>
-          <View style={[
-            styles.txnIcon,
-            { backgroundColor: item.type === 'reversal' ? colors.warning + '20' : 
-                             item.type === 'recharge' ? colors.success + '20' : 
-                             colors.primary + '20' }
-          ]}>
-            <Ionicons
-              name={item.type === 'reversal' ? 'refresh' : 
-                    item.type === 'recharge' ? 'add' : 
-                    'arrow-forward'}
-              size={24}
-              color={item.type === 'reversal' ? colors.warning : 
-                     item.type === 'recharge' ? colors.success : 
-                     colors.primary}
-            />
-          </View>
-
-          <View style={styles.txnInfo}>
-            <Text style={styles.txnMerchant}>{merchantName}</Text>
-            <Text style={styles.txnStudent}>
-              {item.student_name || item.student_id}
-            </Text>
-            <Text style={styles.txnDate}>
-              {new Date(item.timestamp).toLocaleString()}
-            </Text>
-          </View>
-
-          <View style={styles.txnRight}>
-            <Text style={[
-              styles.txnAmount,
-              { color: item.type === 'reversal' ? colors.warning : colors.text }
-            ]}>
-              {item.type === 'reversal' ? '-' : ''}₹{item.amount}
-            </Text>
-            <View style={[
+        <View
+          style={[
+            styles.iconBox,
+            {
+              backgroundColor:
+                (isRecharge ? colors.success : colors.primary) + "20",
+            },
+          ]}
+        >
+          <Ionicons
+            name={isRecharge ? "arrow-down" : "arrow-up"}
+            size={18}
+            color={isRecharge ? colors.success : colors.primary}
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.cardTitle}>
+            {isRecharge
+              ? `${item.student?.name || "Student"} — Recharge`
+              : `${item.student?.name || "?"} → ${item.merchant?.shopName || "?"}`}
+          </Text>
+          <Text style={styles.cardSub}>
+            {ts ? new Date(ts).toLocaleString("en-IN") : "—"}
+          </Text>
+          <Text style={styles.cardId}>{item.transactionId || item._id}</Text>
+        </View>
+        <View style={{ alignItems: "flex-end" }}>
+          <Text
+            style={[
+              styles.cardAmount,
+              { color: isRecharge ? colors.success : colors.primary },
+            ]}
+          >
+            {isRecharge ? "+" : ""}₹{(item.amount || 0).toFixed(2)}
+          </Text>
+          <View
+            style={[
               styles.statusBadge,
-              { backgroundColor: item.status === 'reversed' ? colors.warning + '20' : colors.success + '20' }
-            ]}>
-              <Text style={[
-                styles.statusText,
-                { color: item.status === 'reversed' ? colors.warning : colors.success }
-              ]}>
-                {item.status.toUpperCase()}
-              </Text>
-            </View>
+              { backgroundColor: colors.success + "20" },
+            ]}
+          >
+            <Text style={[styles.statusText, { color: colors.success }]}>
+              {(item.status || "completed").toUpperCase()}
+            </Text>
           </View>
         </View>
-
-        {item.riskScore && item.riskScore > 0 && (
-          <View style={styles.riskSection}>
-            <View style={[
-              styles.riskBadge,
-              { backgroundColor: getRiskColor(item.riskScore) + '20' }
-            ]}>
-              <Ionicons name="shield" size={14} color={getRiskColor(item.riskScore)} />
-              <Text style={[styles.riskText, { color: getRiskColor(item.riskScore) }]}>
-                Risk: {item.riskScore}
-              </Text>
-            </View>
-            {item.riskFlags && item.riskFlags.length > 0 && (
-              <Text style={styles.riskFlags}>
-                {item.riskFlags.join(', ')}
-              </Text>
-            )}
-          </View>
-        )}
       </TouchableOpacity>
     );
   };
@@ -230,310 +130,149 @@ export default function TransactionsScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Transactions</Text>
-        <Text style={styles.subtitle}>{filteredTransactions.length} transactions</Text>
+        <Text style={styles.subtitle}>
+          {filtered.length} records • ₹{totalAmount.toFixed(0)} volume
+        </Text>
       </View>
 
-      {/* Stats Cards */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>₹{stats.totalVolume.toFixed(0)}</Text>
-          <Text style={styles.statLabel}>Total Volume</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{stats.completedCount}</Text>
-          <Text style={styles.statLabel}>Completed</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>₹{stats.avgAmount.toFixed(0)}</Text>
-          <Text style={styles.statLabel}>Avg Amount</Text>
-        </View>
+      {/* Filters */}
+      <View style={styles.filterRow}>
+        {(["all", "payment", "recharge"] as const).map((f) => (
+          <TouchableOpacity
+            key={f}
+            style={[styles.filterTab, filter === f && styles.filterTabActive]}
+            onPress={() => setFilter(f)}
+          >
+            <Text
+              style={[
+                styles.filterText,
+                filter === f && styles.filterTextActive,
+              ]}
+            >
+              {f === "all"
+                ? "All"
+                : f === "payment"
+                  ? "↑ Payment"
+                  : "↓ Recharge"}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
-      {/* Search Bar */}
-      <View style={styles.searchBar}>
-        <Ionicons name="search" size={20} color={colors.textLight} />
+      {/* Search */}
+      <View style={styles.searchBox}>
+        <Ionicons name="search" size={18} color={colors.textLight} />
         <TextInput
-          style={styles.searchInput}
-          placeholder="Search by ID, student, merchant..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
+          style={[styles.searchInput, { color: colors.text }]}
+          placeholder="Search by name, ID..."
           placeholderTextColor={colors.textLight}
+          value={search}
+          onChangeText={setSearch}
+          autoComplete="off"
+          autoCorrect={false}
         />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={20} color={colors.textLight} />
+        {search.length > 0 && (
+          <TouchableOpacity onPress={() => setSearch("")}>
+            <Ionicons name="close-circle" size={18} color={colors.textLight} />
           </TouchableOpacity>
         )}
       </View>
 
-      {/* Type Filter */}
-      <View style={styles.filterRow}>
-        <Text style={styles.filterLabel}>Type:</Text>
-        <TouchableOpacity
-          style={[styles.filterChip, filterType === 'all' && styles.filterChipActive]}
-          onPress={() => setFilterType('all')}
-        >
-          <Text style={[styles.filterText, filterType === 'all' && styles.filterTextActive]}>
-            All
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterChip, filterType === 'payment' && styles.filterChipActive]}
-          onPress={() => setFilterType('payment')}
-        >
-          <Ionicons name="arrow-forward" size={14} color={filterType === 'payment' ? '#fff' : colors.primary} />
-          <Text style={[styles.filterText, filterType === 'payment' && styles.filterTextActive]}>
-            Payments
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterChip, filterType === 'recharge' && styles.filterChipActive]}
-          onPress={() => setFilterType('recharge')}
-        >
-          <Ionicons name="add" size={14} color={filterType === 'recharge' ? '#fff' : colors.success} />
-          <Text style={[styles.filterText, filterType === 'recharge' && styles.filterTextActive]}>
-            Recharges
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterChip, filterType === 'reversal' && styles.filterChipActive]}
-          onPress={() => setFilterType('reversal')}
-        >
-          <Ionicons name="refresh" size={14} color={filterType === 'reversal' ? '#fff' : colors.warning} />
-          <Text style={[styles.filterText, filterType === 'reversal' && styles.filterTextActive]}>
-            Reversals
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Status Filter */}
-      <View style={styles.filterRow}>
-        <Text style={styles.filterLabel}>Status:</Text>
-        <TouchableOpacity
-          style={[styles.filterChip, filterStatus === 'all' && styles.filterChipActive]}
-          onPress={() => setFilterStatus('all')}
-        >
-          <Text style={[styles.filterText, filterStatus === 'all' && styles.filterTextActive]}>
-            All
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterChip, filterStatus === 'completed' && styles.filterChipActive]}
-          onPress={() => setFilterStatus('completed')}
-        >
-          <Ionicons name="checkmark" size={14} color={filterStatus === 'completed' ? '#fff' : colors.success} />
-          <Text style={[styles.filterText, filterStatus === 'completed' && styles.filterTextActive]}>
-            Completed
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterChip, filterStatus === 'reversed' && styles.filterChipActive]}
-          onPress={() => setFilterStatus('reversed')}
-        >
-          <Ionicons name="close" size={14} color={filterStatus === 'reversed' ? '#fff' : colors.danger} />
-          <Text style={[styles.filterText, filterStatus === 'reversed' && styles.filterTextActive]}>
-            Reversed
-          </Text>
-        </TouchableOpacity>
-      </View>
-
       <FlatList
-        data={filteredTransactions}
-        renderItem={renderTransaction}
-        keyExtractor={(item) => item.transaction_id}
+        data={filtered}
+        renderItem={renderItem}
+        keyExtractor={(item, i) => item._id || item.transactionId || String(i)}
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={loadTransactions} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={loadTransactions}
+            colors={[adminColor]}
+          />
+        }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="receipt-outline" size={64} color={colors.textLight} />
-            <Text style={styles.emptyText}>No transactions found</Text>
-          </View>
+          loading ? (
+            <View style={styles.empty}>
+              <ActivityIndicator size="large" color={adminColor} />
+            </View>
+          ) : (
+            <View style={styles.empty}>
+              <Ionicons
+                name="receipt-outline"
+                size={64}
+                color={colors.textLight}
+              />
+              <Text style={styles.emptyText}>No transactions found</Text>
+            </View>
+          )
         }
       />
 
-      {/* Transaction Details Modal */}
+      {/* Detail Modal */}
       <Modal
-        visible={detailsModalVisible}
+        visible={modalVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setDetailsModalVisible(false)}
+        onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Transaction Details</Text>
-              <TouchableOpacity
-                onPress={() => setDetailsModalVisible(false)}
-                style={styles.closeButton}
-              >
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
                 <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
-
-            {selectedTxn && (
+            {selected && (
               <>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Transaction ID</Text>
-                  <Text style={styles.detailValue}>{selectedTxn.transaction_id}</Text>
-                </View>
-
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Type</Text>
-                  <Text style={styles.detailValue}>{selectedTxn.type.toUpperCase()}</Text>
-                </View>
-
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Amount</Text>
-                  <Text style={[styles.detailValue, styles.amountBig]}>₹{selectedTxn.amount}</Text>
-                </View>
-
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Status</Text>
-                  <Text style={[
-                    styles.detailValue,
-                    { color: selectedTxn.status === 'completed' ? colors.success : colors.warning }
-                  ]}>
-                    {selectedTxn.status.toUpperCase()}
-                  </Text>
-                </View>
-
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Student</Text>
-                  <Text style={styles.detailValue}>
-                    {selectedTxn.student_name || selectedTxn.student_id}
-                  </Text>
-                </View>
-
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Merchant</Text>
-                  <Text style={styles.detailValue}>
-                    {selectedTxn.merchant_id === 'WALLET_RECHARGE' 
-                      ? 'Wallet Recharge' 
-                      : MERCHANT_CATEGORIES[selectedTxn.merchant_id] || selectedTxn.merchant_id}
-                  </Text>
-                </View>
-
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Date & Time</Text>
-                  <Text style={styles.detailValue}>
-                    {new Date(selectedTxn.timestamp).toLocaleString()}
-                  </Text>
-                </View>
-
-                {selectedTxn.riskScore !== undefined && selectedTxn.riskScore > 0 && (
-                  <>
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Risk Score</Text>
-                      <Text style={[
-                        styles.detailValue,
-                        { color: getRiskColor(selectedTxn.riskScore) }
-                      ]}>
-                        {selectedTxn.riskScore} / 100
-                      </Text>
-                    </View>
-
-                    {selectedTxn.riskFlags && selectedTxn.riskFlags.length > 0 && (
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Risk Flags</Text>
-                        <Text style={styles.detailValue}>
-                          {selectedTxn.riskFlags.join(', ')}
-                        </Text>
-                      </View>
-                    )}
-                  </>
-                )}
-
-                {selectedTxn.reviewStatus && (
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Review Status</Text>
-                    <Text style={styles.detailValue}>
-                      {selectedTxn.reviewStatus.toUpperCase()}
-                    </Text>
+                <Text
+                  style={[
+                    styles.modalAmount,
+                    {
+                      color:
+                        selected.type === "recharge"
+                          ? colors.success
+                          : colors.primary,
+                    },
+                  ]}
+                >
+                  ₹{(selected.amount || 0).toFixed(2)}
+                </Text>
+                {[
+                  { label: "Type", value: selected.type?.toUpperCase() || "—" },
+                  {
+                    label: "Status",
+                    value: (selected.status || "completed").toUpperCase(),
+                  },
+                  {
+                    label: "Txn ID",
+                    value: selected.transactionId || selected._id || "—",
+                  },
+                  { label: "Student", value: selected.student?.name || "—" },
+                  {
+                    label: "Student ID",
+                    value: selected.student?.studentId || "—",
+                  },
+                  {
+                    label: "Merchant",
+                    value:
+                      selected.merchant?.shopName ||
+                      (selected.type === "recharge" ? "Admin Top-up" : "—"),
+                  },
+                  {
+                    label: "Date/Time",
+                    value: selected.createdAt
+                      ? new Date(selected.createdAt).toLocaleString("en-IN")
+                      : "—",
+                  },
+                ].map((row) => (
+                  <View key={row.label} style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>{row.label}</Text>
+                    <Text style={styles.detailValue}>{row.value}</Text>
                   </View>
-                )}
-
-                {selectedTxn.type === 'payment' && selectedTxn.status === 'completed' && (
-                  <TouchableOpacity
-                    style={styles.reverseButton}
-                    onPress={() => {
-                      setDetailsModalVisible(false);
-                      handleReverseTransaction(selectedTxn);
-                    }}
-                  >
-                    <Ionicons name="refresh" size={20} color="#fff" />
-                    <Text style={styles.reverseButtonText}>Reverse Transaction</Text>
-                  </TouchableOpacity>
-                )}
-
-                {selectedTxn.type === 'reversal' && selectedTxn.reversalReason && (
-                  <View style={styles.reversalInfoCard}>
-                    <Ionicons name="information-circle" size={20} color={colors.warning} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.reversalLabel}>Reversal Reason</Text>
-                      <Text style={styles.reversalText}>{selectedTxn.reversalReason}</Text>
-                    </View>
-                  </View>
-                )}
+                ))}
               </>
             )}
-          </View>
-        </View>
-      </Modal>
-
-      {/* Reverse Transaction Modal */}
-      <Modal
-        visible={reverseModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setReverseModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Ionicons name="refresh" size={32} color={colors.danger} />
-              <Text style={styles.modalTitle}>Reverse Transaction</Text>
-            </View>
-            <Text style={styles.modalSubtitle}>
-              Amount: ₹{selectedTxn?.amount}
-            </Text>
-            <Text style={styles.modalWarning}>
-              ⚠️ This will refund the student and deduct from merchant
-            </Text>
-
-            <TextInput
-              style={styles.reasonInput}
-              placeholder="Enter reason for reversal..."
-              value={reversalReason}
-              onChangeText={setReversalReason}
-              multiline
-              numberOfLines={4}
-              placeholderTextColor={colors.textLight}
-            />
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.modalCancelBtn}
-                onPress={() => {
-                  setReverseModalVisible(false);
-                  setReversalReason('');
-                  setSelectedTxn(null);
-                }}
-              >
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.modalConfirmBtn}
-                onPress={confirmReversal}
-              >
-                <Text style={styles.modalConfirmText}>Reverse</Text>
-              </TouchableOpacity>
-            </View>
           </View>
         </View>
       </Modal>
@@ -541,329 +280,103 @@ export default function TransactionsScreen() {
   );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    padding: 20,
-    paddingTop: 60,
-    backgroundColor: colors.card,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: colors.textLight,
-    marginTop: 4,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    padding: 16,
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: colors.card,
-    padding: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  statNumber: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: colors.textLight,
-    marginTop: 4,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    marginHorizontal: 16,
-    marginBottom: 12,
-    padding: 12,
-    borderRadius: 12,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: colors.text,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    marginBottom: 8,
-    gap: 8,
-    alignItems: 'center',
-  },
-  filterLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textLight,
-  },
-  filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: colors.card,
-    gap: 4,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  filterChipActive: {
-    backgroundColor: colors.admin,
-    borderColor: colors.admin,
-  },
-  filterText: {
-    fontSize: 12,
-    color: colors.text,
-    fontWeight: '500',
-  },
-  filterTextActive: {
-    color: '#fff',
-  },
-  list: {
-    padding: 16,
-    paddingTop: 8,
-  },
-  txnCard: {
-    backgroundColor: colors.card,
-    padding: 14,
-    borderRadius: 16,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  txnHeader: {
-    flexDirection: 'row',
-  },
-  txnIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  txnInfo: {
-    flex: 1,
-  },
-  txnMerchant: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  txnStudent: {
-    fontSize: 13,
-    color: colors.textLight,
-    marginTop: 2,
-  },
-  txnDate: {
-    fontSize: 11,
-    color: colors.textLight,
-    marginTop: 2,
-  },
-  txnRight: {
-    alignItems: 'flex-end',
-  },
-  txnAmount: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    marginTop: 4,
-  },
-  statusText: {
-    fontSize: 9,
-    fontWeight: 'bold',
-  },
-  riskSection: {
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  riskBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    gap: 4,
-  },
-  riskText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  riskFlags: {
-    fontSize: 10,
-    color: colors.textLight,
-    marginTop: 4,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 100,
-  },
-  emptyText: {
-    fontSize: 18,
-    color: colors.textLight,
-    marginTop: 16,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: colors.card,
-    borderRadius: 20,
-    padding: 24,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  closeButton: {
-    padding: 4,
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  modalSubtitle: {
-    fontSize: 16,
-    color: colors.textLight,
-    marginBottom: 12,
-  },
-  modalWarning: {
-    fontSize: 14,
-    color: colors.warning,
-    marginBottom: 20,
-  },
-  reasonInput: {
-    backgroundColor: colors.background,
-    padding: 12,
-    borderRadius: 12,
-    fontSize: 16,
-    minHeight: 100,
-    textAlignVertical: 'top',
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    color: colors.text,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  modalCancelBtn: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: colors.background,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  modalCancelText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  modalConfirmBtn: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: colors.danger,
-    alignItems: 'center',
-  },
-  modalConfirmText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  detailLabel: {
-    fontSize: 14,
-    color: colors.textLight,
-    fontWeight: '500',
-  },
-  detailValue: {
-    fontSize: 14,
-    color: colors.text,
-    fontWeight: '600',
-    maxWidth: '60%',
-    textAlign: 'right',
-  },
-  amountBig: {
-    fontSize: 20,
-    color: colors.primary,
-  },
-  reverseButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.danger,
-    padding: 14,
-    borderRadius: 12,
-    marginTop: 20,
-    gap: 8,
-  },
-  reverseButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  reversalInfoCard: {
-    flexDirection: 'row',
-    backgroundColor: colors.warning + '10',
-    padding: 12,
-    borderRadius: 12,
-    gap: 12,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: colors.warning,
-  },
-  reversalLabel: {
-    fontSize: 12,
-    color: colors.warning,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  reversalText: {
-    fontSize: 13,
-    color: colors.text,
-  },
-});
+const getStyles = (colors: any, adminColor: string) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    header: { padding: 20, paddingTop: 60, backgroundColor: adminColor },
+    title: { fontSize: 28, fontWeight: "bold", color: "#fff" },
+    subtitle: { fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: 4 },
+    filterRow: { flexDirection: "row", padding: 16, gap: 8 },
+    filterTab: {
+      flex: 1,
+      padding: 10,
+      borderRadius: 10,
+      alignItems: "center",
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    filterTabActive: { backgroundColor: adminColor, borderColor: adminColor },
+    filterText: { fontSize: 13, fontWeight: "600", color: colors.text },
+    filterTextActive: { color: "#fff" },
+    searchBox: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginHorizontal: 16,
+      marginBottom: 8,
+      backgroundColor: colors.card,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 8,
+    },
+    searchInput: { flex: 1, padding: 12, fontSize: 14 },
+    list: { padding: 16, paddingTop: 8 },
+    card: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 14,
+      marginBottom: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 12,
+    },
+    iconBox: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    cardTitle: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: colors.text,
+      marginBottom: 3,
+    },
+    cardSub: { fontSize: 12, color: colors.textLight },
+    cardId: { fontSize: 10, color: colors.textLight, marginTop: 2 },
+    cardAmount: { fontSize: 17, fontWeight: "bold", marginBottom: 4 },
+    statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+    statusText: { fontSize: 10, fontWeight: "bold", color: colors.success },
+    empty: { padding: 60, alignItems: "center" },
+    emptyText: { fontSize: 16, color: colors.textLight, marginTop: 16 },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.5)",
+      justifyContent: "center",
+      padding: 20,
+    },
+    modalCard: { backgroundColor: colors.card, borderRadius: 20, padding: 24 },
+    modalHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 16,
+    },
+    modalTitle: { fontSize: 20, fontWeight: "bold", color: colors.text },
+    modalAmount: {
+      fontSize: 36,
+      fontWeight: "bold",
+      textAlign: "center",
+      marginBottom: 24,
+    },
+    detailRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    detailLabel: { fontSize: 13, color: colors.textLight, fontWeight: "500" },
+    detailValue: {
+      fontSize: 13,
+      color: colors.text,
+      fontWeight: "600",
+      maxWidth: "60%",
+      textAlign: "right",
+    },
+  });

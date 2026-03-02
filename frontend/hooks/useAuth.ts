@@ -1,50 +1,60 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useContext } from 'react';
-import { AuthContext } from '../contexts/AuthContext';
-
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useContext, useRef } from "react";
+import { Platform } from "react-native";
+import { AuthContext } from "../contexts/AuthContext";
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-
+  const isLoggingOutRef = useRef(false);
 
   if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
+    throw new Error("useAuth must be used within AuthProvider");
   }
 
-
-  // Track activity when screen is focused - with safety checks
   useFocusEffect(
     useCallback(() => {
-      // Only update activity if user is logged in and not loading
-      if (context.user && context.updateLastActivity && !context.loading) {
-        console.log('📍 Screen focused - Updating activity for:', context.user.email);
+      if (
+        context.user &&
+        context.updateLastActivity &&
+        !context.loading &&
+        !isLoggingOutRef.current
+      ) {
         context.updateLastActivity();
       }
-    }, [context.user, context.loading])
+    }, [context.user, context.loading]),
   );
 
-
-  // Enhanced logout function
   const enhancedLogout = async () => {
     try {
-      console.log('🚪 Enhanced logout called');
-      // Call the original logout from context
+      console.log("🚪 Logout started");
+      isLoggingOutRef.current = true;
+
+      // 1. Wipe storage
+      await AsyncStorage.multiRemove(["AUTH_TOKEN", "CURRENT_USER"]);
+
+      // 2. Null user in context
       await context.logout();
-      
-      // Clear AsyncStorage auth token
-      await AsyncStorage.removeItem('AUTH_TOKEN');
-      await AsyncStorage.removeItem('CURRENT_USER');
-      
-      console.log('✅ Logout complete, redirecting to login');
-      
-      // Force navigation to login
-      router.replace('/(auth)/login');
+
+      console.log("✅ Logout complete");
+
+      // 3. Navigate — hard reload on web, router on native
+      if (Platform.OS === "web") {
+        window.location.href = "/";
+      } else {
+        router.replace("/(auth)/login");
+      }
     } catch (error) {
-      console.error('❌ Logout error:', error);
+      console.error("❌ Logout error:", error);
+      isLoggingOutRef.current = false;
+      await AsyncStorage.multiRemove(["AUTH_TOKEN", "CURRENT_USER"]);
+      if (Platform.OS === "web") {
+        window.location.href = "/";
+      } else {
+        router.replace("/(auth)/login");
+      }
     }
   };
-
 
   return {
     ...context,

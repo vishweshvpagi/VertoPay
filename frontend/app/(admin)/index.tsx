@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -6,757 +6,685 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Dimensions,
+  ActivityIndicator,
   Alert,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { useAuth, useAdmin, useTheme } from '../../hooks';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+  Platform,
+  Modal,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
+import { useRouter } from "expo-router";
+import { useAuth } from "../../hooks/useAuth";
+import { useTheme } from "../../hooks/useTheme";
+import { apiRequest } from "../../utils/api";
 
-const { width } = Dimensions.get('window');
-
-export default function AdminDashboardScreen() {
+export default function AdminDashboard() {
   const { user, logout } = useAuth();
-  const { getAllUsers, getAllTransactions, getSuspiciousTransactions } = useAdmin();
   const { colors, theme, toggleTheme } = useTheme();
   const router = useRouter();
-  
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    totalStudents: 0,
-    totalMerchants: 0,
-    activeUsers: 0,
-    blockedUsers: 0,
-    suspendedUsers: 0,
-    totalTransactions: 0,
-    completedTransactions: 0,
-    reversedTransactions: 0,
-    totalVolume: 0,
-    todayVolume: 0,
-    suspiciousTransactions: 0,
-    fraudTransactions: 0,
-    avgTransactionAmount: 0,
-    totalStudentBalance: 0,
-    totalMerchantEarnings: 0,
-  });
-  const [loading, setLoading] = useState(false);
-  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const adminColor = colors.admin || "#7c3aed";
+  const styles = getStyles(colors, adminColor);
 
-  useEffect(() => {
-    loadStats();
-  }, []);
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [logoutModal, setLogoutModal] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadStats();
+    }, []),
+  );
 
   const loadStats = async () => {
     setLoading(true);
     try {
-      const users = await getAllUsers();
-      const transactions = await getAllTransactions();
-      const suspicious = await getSuspiciousTransactions();
-
-      const students = users.filter(u => u.role === 'student');
-      const merchants = users.filter(u => u.role === 'merchant');
-      const blocked = users.filter(u => u.status === 'blocked');
-      const suspended = users.filter(u => u.status === 'suspended');
-      const active = users.filter(u => u.status === 'active');
-      
-      const completedTxns = transactions.filter(t => t.status === 'completed');
-      const reversedTxns = transactions.filter(t => t.status === 'reversed');
-      const fraudTxns = transactions.filter(t => t.reviewStatus === 'fraud');
-      
-      const totalVolume = completedTxns
-        .filter(t => t.type === 'payment')
-        .reduce((sum, t) => sum + t.amount, 0);
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayVolume = completedTxns
-        .filter(t => t.type === 'payment' && new Date(t.timestamp) >= today)
-        .reduce((sum, t) => sum + t.amount, 0);
-
-      const avgAmount = completedTxns.length > 0 
-        ? totalVolume / completedTxns.length 
-        : 0;
-
-      let totalStudentBalance = 0;
-      for (const student of students) {
-        const walletData = await AsyncStorage.getItem(`WALLET_${student.email}`);
-        if (walletData) {
-          const { balance } = JSON.parse(walletData);
-          totalStudentBalance += balance || 0;
-        }
-      }
-
-      let totalMerchantEarnings = 0;
-      for (const merchant of merchants) {
-        const walletData = await AsyncStorage.getItem(`MERCHANT_WALLET_${merchant.email}`);
-        if (walletData) {
-          const { balance } = JSON.parse(walletData);
-          totalMerchantEarnings += balance || 0;
-        }
-      }
-
-      setStats({
-        totalUsers: users.length,
-        totalStudents: students.length,
-        totalMerchants: merchants.length,
-        activeUsers: active.length,
-        blockedUsers: blocked.length,
-        suspendedUsers: suspended.length,
-        totalTransactions: transactions.length,
-        completedTransactions: completedTxns.length,
-        reversedTransactions: reversedTxns.length,
-        totalVolume,
-        todayVolume,
-        suspiciousTransactions: suspicious.length,
-        fraudTransactions: fraudTxns.length,
-        avgTransactionAmount: avgAmount,
-        totalStudentBalance,
-        totalMerchantEarnings,
-      });
-
-      const recent = transactions.slice(0, 5);
-      setRecentActivity(recent);
-    } catch (error) {
-      console.error('Load stats error:', error);
+      const data = await apiRequest<any>("/api/admin/dashboard");
+      setStats(data);
+    } catch (e) {
+      console.error("Dashboard error:", e);
     } finally {
       setLoading(false);
     }
   };
 
-const handleLogout = async () => {
-  try {
-    await AsyncStorage.removeItem('AUTH_TOKEN');
-    await AsyncStorage.removeItem('CURRENT_USER');
-    await logout();
-    router.replace('/(auth)/login');
-  } catch (error) {
-    console.error('Logout error:', error);
-  }
-};
-
-
-
-
-  const clearAllData = () => {
-    Alert.alert(
-      '⚠️ Danger Zone',
-      'This will delete ALL data including users, transactions, and wallets. This cannot be undone!',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete Everything',
-          style: 'destructive',
-          onPress: async () => {
-            await AsyncStorage.clear();
-            Alert.alert('Success', 'All data cleared!', [
-              {
-                text: 'OK',
-                onPress: () => {
-                  logout();
-                  router.replace('/(auth)/login');
-                },
-              },
-            ]);
-          },
-        },
-      ]
-    );
-  };
-
-  const exportData = async () => {
-    try {
-      const allKeys = await AsyncStorage.getAllKeys();
-      const allData = await AsyncStorage.multiGet(allKeys);
-      const dataObject = Object.fromEntries(allData);
-      console.log('📊 EXPORTED DATA:', JSON.stringify(dataObject, null, 2));
-      Alert.alert('Success', 'Data exported to console. Check your terminal/logs.');
-    } catch (error) {
-      Alert.alert('Error', 'Failed to export data');
+  const confirmLogout = () => {
+    if (Platform.OS === "web") {
+      if (window.confirm("Are you sure you want to logout?")) doLogout();
+    } else {
+      setLogoutModal(true);
     }
   };
 
-  const styles = getStyles(colors);
+  const doLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await logout();
+    } catch (e) {
+      console.error("Logout error:", e);
+      setLoggingOut(false);
+      setLogoutModal(false);
+    }
+  };
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      refreshControl={<RefreshControl refreshing={loading} onRefresh={loadStats} />}
-    >
-      {/* Header - FIXED */}
-      <View style={[styles.header, { backgroundColor: colors.admin }]}>
-        <View>
-          <Text style={styles.greeting}>Admin Dashboard</Text>
-          <Text style={styles.email}>{user?.name || user?.email}</Text>
-        </View>
-        <View style={styles.headerButtons}>
-          <TouchableOpacity onPress={toggleTheme} style={[styles.iconButton, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-            <Ionicons name={theme === 'dark' ? 'moon' : 'sunny'} size={24} color="#fff" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleLogout} style={[styles.logoutButton, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-            <Ionicons name="log-out-outline" size={24} color="#fff" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Quick Stats Cards */}
-      <View style={styles.quickStatsContainer}>
-        <View style={[styles.quickStatCard, { backgroundColor: colors.primary }]}>
-          <Ionicons name="people" size={32} color="#fff" />
-          <Text style={styles.quickStatNumber}>{stats.totalUsers}</Text>
-          <Text style={styles.quickStatLabel}>Total Users</Text>
-        </View>
-
-        <View style={[styles.quickStatCard, { backgroundColor: colors.success }]}>
-          <Ionicons name="cash" size={32} color="#fff" />
-          <Text style={styles.quickStatNumber}>₹{stats.totalVolume}</Text>
-          <Text style={styles.quickStatLabel}>Total Volume</Text>
-        </View>
-
-        <View style={[styles.quickStatCard, { backgroundColor: colors.warning }]}>
-          <Ionicons name="alert-circle" size={32} color="#fff" />
-          <Text style={styles.quickStatNumber}>{stats.suspiciousTransactions}</Text>
-          <Text style={styles.quickStatLabel}>Suspicious</Text>
-        </View>
-      </View>
-
-      {/* Alert Banner */}
-      {stats.suspiciousTransactions > 0 && (
-        <TouchableOpacity
-          style={styles.alertCard}
-          onPress={() => router.push('/(admin)/fraud')}
-        >
-          <Ionicons name="warning" size={32} color={colors.danger} />
-          <View style={styles.alertContent}>
-            <Text style={styles.alertTitle}>⚠️ Action Required</Text>
-            <Text style={styles.alertText}>
-              {stats.suspiciousTransactions} transactions need review
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={loadStats}
+            colors={[adminColor]}
+            tintColor={adminColor}
+          />
+        }
+      >
+        {/* ── Header ─────────────────────────────────────────────────────── */}
+        <View style={styles.header}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title}>Admin Dashboard</Text>
+            <Text style={styles.subtitle} numberOfLines={1}>
+              {user?.name || user?.email}
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={24} color={colors.textLight} />
-        </TouchableOpacity>
-      )}
-
-      {/* User Statistics */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>User Statistics</Text>
-        <View style={styles.statsGrid}>
-          <View style={[styles.statCard, { backgroundColor: colors.student + '15' }]}>
-            <Ionicons name="school" size={28} color={colors.student} />
-            <Text style={styles.statNumber}>{stats.totalStudents}</Text>
-            <Text style={styles.statLabel}>Students</Text>
-          </View>
-
-          <View style={[styles.statCard, { backgroundColor: colors.merchant + '15' }]}>
-            <Ionicons name="storefront" size={28} color={colors.merchant} />
-            <Text style={styles.statNumber}>{stats.totalMerchants}</Text>
-            <Text style={styles.statLabel}>Merchants</Text>
-          </View>
-
-          <View style={[styles.statCard, { backgroundColor: colors.success + '15' }]}>
-            <Ionicons name="checkmark-circle" size={28} color={colors.success} />
-            <Text style={styles.statNumber}>{stats.activeUsers}</Text>
-            <Text style={styles.statLabel}>Active</Text>
-          </View>
-
-          <View style={[styles.statCard, { backgroundColor: colors.danger + '15' }]}>
-            <Ionicons name="ban" size={28} color={colors.danger} />
-            <Text style={styles.statNumber}>{stats.blockedUsers}</Text>
-            <Text style={styles.statLabel}>Blocked</Text>
+          <View style={styles.headerBtns}>
+            <TouchableOpacity style={styles.iconBtn} onPress={toggleTheme}>
+              <Ionicons
+                name={theme === "dark" ? "sunny-outline" : "moon-outline"}
+                size={22}
+                color="#fff"
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.iconBtn, styles.logoutIconBtn]}
+              onPress={confirmLogout}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="log-out-outline" size={22} color="#fff" />
+            </TouchableOpacity>
           </View>
         </View>
-      </View>
 
-      {/* Transaction Analytics */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Transaction Analytics</Text>
-        <View style={styles.statsGrid}>
-          <View style={[styles.statCard, { backgroundColor: colors.primary + '15' }]}>
-            <Ionicons name="receipt" size={28} color={colors.primary} />
-            <Text style={styles.statNumber}>{stats.totalTransactions}</Text>
-            <Text style={styles.statLabel}>Total Txns</Text>
+        {/* ── Content ────────────────────────────────────────────────────── */}
+        {loading && !stats ? (
+          <View style={styles.centerBox}>
+            <ActivityIndicator size="large" color={adminColor} />
+            <Text style={styles.centerText}>Loading dashboard...</Text>
           </View>
+        ) : stats ? (
+          <>
+            {/* Alert banners */}
+            {(stats.pendingRecharges > 0 || stats.pendingWithdrawals > 0) && (
+              <View style={styles.alertsContainer}>
+                {stats.pendingRecharges > 0 && (
+                  <TouchableOpacity
+                    style={[
+                      styles.alertCard,
+                      { borderColor: (colors.warning || "#f59e0b") + "60" },
+                    ]}
+                    onPress={() => router.push("/(admin)/recharge")}
+                    activeOpacity={0.8}
+                  >
+                    <View
+                      style={[
+                        styles.alertIconBox,
+                        {
+                          backgroundColor: (colors.warning || "#f59e0b") + "25",
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name="notifications"
+                        size={22}
+                        color={colors.warning || "#f59e0b"}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[
+                          styles.alertTitle,
+                          { color: colors.warning || "#f59e0b" },
+                        ]}
+                      >
+                        {stats.pendingRecharges} Pending Recharge
+                        {stats.pendingRecharges > 1 ? "s" : ""}
+                      </Text>
+                      <Text style={styles.alertSub}>
+                        Tap to review and approve
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={18}
+                      color={colors.warning || "#f59e0b"}
+                    />
+                  </TouchableOpacity>
+                )}
 
-          <View style={[styles.statCard, { backgroundColor: colors.success + '15' }]}>
-            <Ionicons name="checkmark-done" size={28} color={colors.success} />
-            <Text style={styles.statNumber}>{stats.completedTransactions}</Text>
-            <Text style={styles.statLabel}>Completed</Text>
-          </View>
-
-          <View style={[styles.statCard, { backgroundColor: colors.warning + '15' }]}>
-            <Ionicons name="refresh" size={28} color={colors.warning} />
-            <Text style={styles.statNumber}>{stats.reversedTransactions}</Text>
-            <Text style={styles.statLabel}>Reversed</Text>
-          </View>
-
-          <View style={[styles.statCard, { backgroundColor: colors.danger + '15' }]}>
-            <Ionicons name="close-circle" size={28} color={colors.danger} />
-            <Text style={styles.statNumber}>{stats.fraudTransactions}</Text>
-            <Text style={styles.statLabel}>Fraud</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Financial Overview */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Financial Overview</Text>
-        <View style={styles.financialCards}>
-          <View style={styles.financialCard}>
-            <View style={styles.financialHeader}>
-              <Ionicons name="trending-up" size={24} color={colors.success} />
-              <Text style={styles.financialTitle}>Total Volume</Text>
-            </View>
-            <Text style={styles.financialAmount}>₹{stats.totalVolume.toFixed(2)}</Text>
-            <Text style={styles.financialSubtext}>All-time transactions</Text>
-          </View>
-
-          <View style={styles.financialCard}>
-            <View style={styles.financialHeader}>
-              <Ionicons name="today" size={24} color={colors.primary} />
-              <Text style={styles.financialTitle}>Today's Volume</Text>
-            </View>
-            <Text style={styles.financialAmount}>₹{stats.todayVolume.toFixed(2)}</Text>
-            <Text style={styles.financialSubtext}>Last 24 hours</Text>
-          </View>
-
-          <View style={styles.financialCard}>
-            <View style={styles.financialHeader}>
-              <Ionicons name="calculator" size={24} color={colors.warning} />
-              <Text style={styles.financialTitle}>Avg Transaction</Text>
-            </View>
-            <Text style={styles.financialAmount}>₹{stats.avgTransactionAmount.toFixed(2)}</Text>
-            <Text style={styles.financialSubtext}>Per transaction</Text>
-          </View>
-
-          <View style={styles.financialCard}>
-            <View style={styles.financialHeader}>
-              <Ionicons name="wallet" size={24} color={colors.student} />
-              <Text style={styles.financialTitle}>Student Balance</Text>
-            </View>
-            <Text style={styles.financialAmount}>₹{stats.totalStudentBalance.toFixed(2)}</Text>
-            <Text style={styles.financialSubtext}>Total in wallets</Text>
-          </View>
-
-          <View style={styles.financialCard}>
-            <View style={styles.financialHeader}>
-              <Ionicons name="briefcase" size={24} color={colors.merchant} />
-              <Text style={styles.financialTitle}>Merchant Earnings</Text>
-            </View>
-            <Text style={styles.financialAmount}>₹{stats.totalMerchantEarnings.toFixed(2)}</Text>
-            <Text style={styles.financialSubtext}>Total earned</Text>
-          </View>
-
-          <View style={styles.financialCard}>
-            <View style={styles.financialHeader}>
-              <Ionicons name="trending-down" size={24} color={colors.admin} />
-              <Text style={styles.financialTitle}>Platform Fee</Text>
-            </View>
-            <Text style={styles.financialAmount}>₹{(stats.totalVolume * 0.02).toFixed(2)}</Text>
-            <Text style={styles.financialSubtext}>2% commission</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Recent Activity */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recent Activity</Text>
-          <TouchableOpacity onPress={() => router.push('/(admin)/transactions')}>
-            <Text style={styles.viewAllText}>View All</Text>
-          </TouchableOpacity>
-        </View>
-        {recentActivity.length > 0 ? (
-          recentActivity.map((activity, index) => (
-            <View key={index} style={styles.activityCard}>
-              <View style={[
-                styles.activityIcon,
-                { backgroundColor: activity.type === 'payment' ? colors.primary + '20' : colors.success + '20' }
-              ]}>
-                <Ionicons
-                  name={activity.type === 'payment' ? 'arrow-forward' : 'add'}
-                  size={20}
-                  color={activity.type === 'payment' ? colors.primary : colors.success}
-                />
+                {stats.pendingWithdrawals > 0 && (
+                  <TouchableOpacity
+                    style={[
+                      styles.alertCard,
+                      { borderColor: (colors.success || "#22c55e") + "60" },
+                    ]}
+                    onPress={() => router.push("/(admin)/withdrawals")}
+                    activeOpacity={0.8}
+                  >
+                    <View
+                      style={[
+                        styles.alertIconBox,
+                        {
+                          backgroundColor: (colors.success || "#22c55e") + "25",
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name="cash"
+                        size={22}
+                        color={colors.success || "#22c55e"}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[
+                          styles.alertTitle,
+                          { color: colors.success || "#22c55e" },
+                        ]}
+                      >
+                        {stats.pendingWithdrawals} Pending Withdrawal
+                        {stats.pendingWithdrawals > 1 ? "s" : ""}
+                      </Text>
+                      <Text style={styles.alertSub}>
+                        Tap to review and transfer
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={18}
+                      color={colors.success || "#22c55e"}
+                    />
+                  </TouchableOpacity>
+                )}
               </View>
-              <View style={styles.activityInfo}>
-                <Text style={styles.activityTitle}>
-                  {activity.type === 'payment' ? 'Payment' : 'Recharge'}
-                </Text>
-                <Text style={styles.activitySubtitle}>
-                  {activity.student_id} • {new Date(activity.timestamp).toLocaleString()}
-                </Text>
-              </View>
-              <Text style={styles.activityAmount}>₹{activity.amount}</Text>
+            )}
+
+            {/* Top 3 stat cards */}
+            <View style={styles.topRow}>
+              {[
+                {
+                  label: "Students",
+                  value: stats.totalStudents,
+                  icon: "people",
+                  color: colors.student || "#6366f1",
+                },
+                {
+                  label: "Merchants",
+                  value: stats.totalMerchants,
+                  icon: "storefront",
+                  color: colors.merchant || "#f59e0b",
+                },
+                {
+                  label: "Transactions",
+                  value: stats.totalTransactions,
+                  icon: "receipt",
+                  color: colors.primary || "#3b82f6",
+                },
+              ].map((s) => (
+                <View
+                  key={s.label}
+                  style={[styles.topCard, { backgroundColor: s.color }]}
+                >
+                  <Ionicons name={s.icon as any} size={24} color="#fff" />
+                  <Text style={styles.topValue}>{s.value ?? 0}</Text>
+                  <Text style={styles.topLabel}>{s.label}</Text>
+                </View>
+              ))}
             </View>
-          ))
+
+            {/* Financial Overview */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Financial Overview</Text>
+              <View style={styles.grid}>
+                {[
+                  {
+                    label: "Total Revenue",
+                    value: `₹${(stats.totalRevenue || 0).toFixed(0)}`,
+                    icon: "trending-up",
+                    color: colors.success || "#22c55e",
+                  },
+                  {
+                    label: "Today's Revenue",
+                    value: `₹${(stats.todayRevenue || 0).toFixed(0)}`,
+                    icon: "today",
+                    color: colors.primary || "#3b82f6",
+                  },
+                  {
+                    label: "Today's Txns",
+                    value: stats.todayTransactions ?? 0,
+                    icon: "flash",
+                    color: colors.warning || "#f59e0b",
+                  },
+                  {
+                    label: "Pending Recharges",
+                    value: stats.pendingRecharges ?? 0,
+                    icon: "wallet",
+                    color: colors.danger || "#ef4444",
+                  },
+                  {
+                    label: "Pending Withdrawals",
+                    value: stats.pendingWithdrawals ?? 0,
+                    icon: "cash",
+                    color: colors.merchant || "#f59e0b",
+                  },
+                  {
+                    label: "Total Students",
+                    value: stats.totalStudents ?? 0,
+                    icon: "school",
+                    color: colors.student || "#6366f1",
+                  },
+                ].map((s) => (
+                  <View key={s.label} style={styles.gridCard}>
+                    <View
+                      style={[
+                        styles.gridIconBox,
+                        { backgroundColor: s.color + "22" },
+                      ]}
+                    >
+                      <Ionicons
+                        name={s.icon as any}
+                        size={22}
+                        color={s.color}
+                      />
+                    </View>
+                    <Text style={styles.gridValue}>{s.value}</Text>
+                    <Text style={styles.gridLabel}>{s.label}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {/* Quick Actions */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Quick Actions</Text>
+              {[
+                {
+                  label: "Recharge Requests",
+                  icon: "wallet",
+                  color: colors.warning || "#f59e0b",
+                  route: "/(admin)/recharge",
+                  badge: stats.pendingRecharges ?? 0,
+                },
+                {
+                  label: "Withdrawal Requests",
+                  icon: "cash",
+                  color: colors.success || "#22c55e",
+                  route: "/(admin)/withdrawals",
+                  badge: stats.pendingWithdrawals ?? 0,
+                },
+                {
+                  label: "Manage Users",
+                  icon: "people",
+                  color: colors.student || "#6366f1",
+                  route: "/(admin)/users",
+                  badge: 0,
+                },
+                {
+                  label: "Transactions",
+                  icon: "receipt",
+                  color: colors.primary || "#3b82f6",
+                  route: "/(admin)/transactions",
+                  badge: 0,
+                },
+                {
+                  label: "Fraud Detection",
+                  icon: "shield",
+                  color: colors.danger || "#ef4444",
+                  route: "/(admin)/fraud",
+                  badge: 0,
+                },
+                {
+                  label: "Audit Log",
+                  icon: "document-text",
+                  color: colors.textLight || "#94a3b8",
+                  route: "/(admin)/audit",
+                  badge: 0,
+                },
+              ].map((a) => (
+                <TouchableOpacity
+                  key={a.label}
+                  style={styles.actionRow}
+                  onPress={() => router.push(a.route as any)}
+                  activeOpacity={0.7}
+                >
+                  <View
+                    style={[
+                      styles.actionIconBox,
+                      { backgroundColor: a.color + "20" },
+                    ]}
+                  >
+                    <Ionicons name={a.icon as any} size={22} color={a.color} />
+                  </View>
+                  <Text style={styles.actionText}>{a.label}</Text>
+                  {a.badge > 0 && (
+                    <View
+                      style={[
+                        styles.badge,
+                        { backgroundColor: colors.danger || "#ef4444" },
+                      ]}
+                    >
+                      <Text style={styles.badgeText}>{a.badge}</Text>
+                    </View>
+                  )}
+                  <Ionicons
+                    name="chevron-forward"
+                    size={20}
+                    color={colors.textLight}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Logout row */}
+            <View style={styles.section}>
+              <TouchableOpacity
+                style={styles.logoutRow}
+                onPress={confirmLogout}
+                activeOpacity={0.7}
+              >
+                <View
+                  style={[
+                    styles.actionIconBox,
+                    { backgroundColor: "#ef444420" },
+                  ]}
+                >
+                  <Ionicons name="log-out-outline" size={22} color="#ef4444" />
+                </View>
+                <Text style={[styles.actionText, { color: "#ef4444" }]}>
+                  Logout
+                </Text>
+                <Ionicons name="chevron-forward" size={20} color="#ef4444" />
+              </TouchableOpacity>
+            </View>
+          </>
         ) : (
-          <Text style={styles.noActivity}>No recent activity</Text>
+          <View style={styles.centerBox}>
+            <Ionicons
+              name="cloud-offline-outline"
+              size={64}
+              color={colors.textLight}
+            />
+            <Text style={styles.centerText}>Failed to load dashboard</Text>
+            <TouchableOpacity
+              style={[styles.retryBtn, { backgroundColor: adminColor }]}
+              onPress={loadStats}
+            >
+              <Text style={styles.retryText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
         )}
-      </View>
 
-      {/* Quick Actions */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => router.push('/(admin)/users')}
-        >
-          <View style={[styles.actionIcon, { backgroundColor: colors.primary + '20' }]}>
-            <Ionicons name="people" size={24} color={colors.primary} />
-          </View>
-          <Text style={styles.actionText}>Manage Users</Text>
-          <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
-        </TouchableOpacity>
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>VertoPay Admin v1.0.0</Text>
+          <Text style={styles.footerText}>
+            {new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
+          </Text>
+        </View>
+      </ScrollView>
 
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => router.push('/(admin)/transactions')}
-        >
-          <View style={[styles.actionIcon, { backgroundColor: colors.success + '20' }]}>
-            <Ionicons name="receipt" size={24} color={colors.success} />
-          </View>
-          <Text style={styles.actionText}>View Transactions</Text>
-          <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => router.push('/(admin)/fraud')}
-        >
-          <View style={[styles.actionIcon, { backgroundColor: colors.danger + '20' }]}>
-            <Ionicons name="shield" size={24} color={colors.danger} />
-          </View>
-          <Text style={styles.actionText}>Fraud Detection</Text>
-          {stats.suspiciousTransactions > 0 && (
-            <View style={styles.actionBadge}>
-              <Text style={styles.actionBadgeText}>{stats.suspiciousTransactions}</Text>
+      {/* ── Logout modal ───────────────────────────────────────────────────── */}
+      <Modal
+        visible={logoutModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !loggingOut && setLogoutModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalIconWrap}>
+              <Ionicons name="log-out-outline" size={40} color="#ef4444" />
             </View>
-          )}
-          <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => router.push('/(admin)/audit')}
-        >
-          <View style={[styles.actionIcon, { backgroundColor: colors.warning + '20' }]}>
-            <Ionicons name="document-text" size={24} color={colors.warning} />
+            <Text style={styles.modalTitle}>Logout</Text>
+            <Text style={styles.modalBody}>
+              Are you sure you want to logout from the admin panel?
+            </Text>
+            <View style={styles.modalBtns}>
+              <TouchableOpacity
+                style={[
+                  styles.modalBtn,
+                  styles.cancelBtn,
+                  { borderColor: colors.border },
+                ]}
+                onPress={() => setLogoutModal(false)}
+                disabled={loggingOut}
+              >
+                <Text style={[styles.modalBtnText, { color: colors.text }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.confirmBtn]}
+                onPress={doLogout}
+                disabled={loggingOut}
+                activeOpacity={0.8}
+              >
+                {loggingOut ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="log-out-outline" size={18} color="#fff" />
+                    <Text
+                      style={[
+                        styles.modalBtnText,
+                        { color: "#fff", marginLeft: 6 },
+                      ]}
+                    >
+                      Logout
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
-          <Text style={styles.actionText}>Audit Log</Text>
-          <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
-        </TouchableOpacity>
-      </View>
-
-      {/* System Tools */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>System Tools</Text>
-        
-        <TouchableOpacity
-          style={styles.toolButton}
-          onPress={exportData}
-        >
-          <Ionicons name="download" size={20} color={colors.primary} />
-          <Text style={styles.toolText}>Export All Data</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.toolButton}
-          onPress={loadStats}
-        >
-          <Ionicons name="refresh" size={20} color={colors.success} />
-          <Text style={styles.toolText}>Refresh Dashboard</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.toolButton, styles.dangerButton]}
-          onPress={clearAllData}
-        >
-          <Ionicons name="trash" size={20} color={colors.danger} />
-          <Text style={[styles.toolText, { color: colors.danger }]}>Clear All Data</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Footer Info */}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>VertoPay Admin Panel v1.0.0</Text>
-        <Text style={styles.footerText}>Last updated: {new Date().toLocaleString()}</Text>
-      </View>
-    </ScrollView>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    paddingTop: 60,
-  },
-  headerButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  iconButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  greeting: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  email: {
-    fontSize: 14,
-    color: '#fff',
-    opacity: 0.9,
-    marginTop: 4,
-  },
-  logoutButton: {
-    width: 48,
-    height: 48,
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  quickStatsContainer: {
-    flexDirection: 'row',
-    padding: 16,
-    gap: 12,
-  },
-  quickStatCard: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  quickStatNumber: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginTop: 8,
-  },
-  quickStatLabel: {
-    fontSize: 11,
-    color: '#fff',
-    marginTop: 4,
-    opacity: 0.9,
-  },
-  alertCard: {
-    flexDirection: 'row',
-    backgroundColor: colors.danger + '10',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 16,
-    borderRadius: 16,
-    alignItems: 'center',
-    gap: 12,
-    borderWidth: 1,
-    borderColor: colors.danger,
-  },
-  alertContent: {
-    flex: 1,
-  },
-  alertTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  alertText: {
-    fontSize: 14,
-    color: colors.textLight,
-    marginTop: 4,
-  },
-  section: {
-    padding: 16,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 16,
-  },
-  viewAllText: {
-    fontSize: 14,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  statCard: {
-    width: (width - 56) / 2,
-    padding: 16,
-    borderRadius: 16,
-    alignItems: 'center',
-    gap: 8,
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: colors.textLight,
-    textAlign: 'center',
-  },
-  financialCards: {
-    gap: 12,
-  },
-  financialCard: {
-    backgroundColor: colors.card,
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  financialHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  financialTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textLight,
-  },
-  financialAmount: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  financialSubtext: {
-    fontSize: 12,
-    color: colors.textLight,
-  },
-  activityCard: {
-    flexDirection: 'row',
-    backgroundColor: colors.card,
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 8,
-    alignItems: 'center',
-  },
-  activityIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  activityInfo: {
-    flex: 1,
-  },
-  activityTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  activitySubtitle: {
-    fontSize: 11,
-    color: colors.textLight,
-    marginTop: 2,
-  },
-  activityAmount: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  noActivity: {
-    fontSize: 14,
-    color: colors.textLight,
-    textAlign: 'center',
-    padding: 20,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    backgroundColor: colors.card,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 12,
-  },
-  actionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionText: {
-    flex: 1,
-    fontSize: 16,
-    color: colors.text,
-    fontWeight: '500',
-  },
-  actionBadge: {
-    backgroundColor: colors.danger,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  actionBadgeText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  toolButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 8,
-    gap: 12,
-  },
-  toolText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  dangerButton: {
-    borderWidth: 1,
-    borderColor: colors.danger,
-    backgroundColor: colors.danger + '10',
-  },
-  footer: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: 12,
-    color: colors.textLight,
-    marginTop: 4,
-  },
-});
+const getStyles = (colors: any, adminColor: string) =>
+  StyleSheet.create({
+    // Header
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      padding: 20,
+      paddingTop: 60,
+      backgroundColor: adminColor,
+    },
+    title: { fontSize: 26, fontWeight: "bold", color: "#fff" },
+    subtitle: { fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: 3 },
+    headerBtns: { flexDirection: "row", gap: 10, marginLeft: 12 },
+    iconBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: "rgba(255,255,255,0.2)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    logoutIconBtn: { backgroundColor: "rgba(239,68,68,0.6)" },
+
+    // Alerts
+    alertsContainer: { gap: 8, margin: 16, marginBottom: 0 },
+    alertCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.card,
+      padding: 14,
+      borderRadius: 14,
+      gap: 12,
+      borderWidth: 1,
+    },
+    alertIconBox: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    alertTitle: { fontSize: 14, fontWeight: "700" },
+    alertSub: { fontSize: 12, color: colors.textLight, marginTop: 2 },
+
+    // Top cards
+    topRow: { flexDirection: "row", padding: 16, paddingBottom: 0, gap: 10 },
+    topCard: {
+      flex: 1,
+      padding: 14,
+      borderRadius: 14,
+      alignItems: "center",
+      gap: 6,
+      elevation: 2,
+    },
+    topValue: { fontSize: 22, fontWeight: "bold", color: "#fff" },
+    topLabel: { fontSize: 11, color: "rgba(255,255,255,0.9)" },
+
+    // Sections
+    section: { padding: 16 },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: "bold",
+      color: colors.text,
+      marginBottom: 14,
+    },
+
+    // Grid
+    grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+    gridCard: {
+      width: "47%",
+      backgroundColor: colors.card,
+      padding: 16,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    gridIconBox: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 10,
+    },
+    gridValue: {
+      fontSize: 22,
+      fontWeight: "bold",
+      color: colors.text,
+      marginBottom: 4,
+    },
+    gridLabel: { fontSize: 12, color: colors.textLight },
+
+    // Action rows
+    actionRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.card,
+      padding: 16,
+      borderRadius: 12,
+      marginBottom: 10,
+      gap: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    logoutRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: "#ef444410",
+      padding: 16,
+      borderRadius: 12,
+      gap: 12,
+      borderWidth: 1,
+      borderColor: "#ef444430",
+    },
+    actionIconBox: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    actionText: {
+      flex: 1,
+      fontSize: 15,
+      fontWeight: "600",
+      color: colors.text,
+    },
+    badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+    badgeText: { fontSize: 12, fontWeight: "bold", color: "#fff" },
+
+    // Center states
+    centerBox: { padding: 80, alignItems: "center" },
+    centerText: { color: colors.textLight, marginTop: 16, fontSize: 15 },
+    retryBtn: {
+      marginTop: 20,
+      paddingHorizontal: 28,
+      paddingVertical: 12,
+      borderRadius: 10,
+    },
+    retryText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+
+    // Footer
+    footer: { padding: 24, alignItems: "center", gap: 4 },
+    footerText: { fontSize: 12, color: colors.textLight },
+
+    // Modal
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.55)",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 24,
+    },
+    modalCard: {
+      width: "100%",
+      maxWidth: 360,
+      backgroundColor: colors.card,
+      borderRadius: 20,
+      padding: 28,
+      alignItems: "center",
+    },
+    modalIconWrap: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: "#ef444415",
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 16,
+    },
+    modalTitle: {
+      fontSize: 22,
+      fontWeight: "bold",
+      color: colors.text,
+      marginBottom: 10,
+    },
+    modalBody: {
+      fontSize: 15,
+      color: colors.textLight,
+      textAlign: "center",
+      marginBottom: 28,
+      lineHeight: 22,
+    },
+    modalBtns: { flexDirection: "row", gap: 12, width: "100%" },
+    modalBtn: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 14,
+      borderRadius: 12,
+    },
+    cancelBtn: { backgroundColor: colors.background, borderWidth: 1 },
+    confirmBtn: { backgroundColor: "#ef4444" },
+    modalBtnText: { fontSize: 15, fontWeight: "700" },
+  });

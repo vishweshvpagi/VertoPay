@@ -1,7 +1,6 @@
-const Merchant = require('../models/Merchant');
-const Transaction = require('../models/Transaction');
+const Transaction = require("../models/Transaction");
+const Merchant = require("../models/Merchant");
 
-// Get merchant profile
 const getProfile = async (req, res) => {
   try {
     res.json({ merchant: req.user });
@@ -10,49 +9,56 @@ const getProfile = async (req, res) => {
   }
 };
 
-// Get merchant balance
 const getBalance = async (req, res) => {
   try {
-    const merchant = await Merchant.findById(req.user._id);
+    const merchant = await Merchant.findById(req.user._id).select("balance");
     res.json({ balance: merchant.balance });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// Get merchant transaction history
 const getTransactionHistory = async (req, res) => {
   try {
-    const transactions = await Transaction.find({ merchant: req.user._id })
-      .populate('student', 'name studentId')
+    const transactions = await Transaction.find({
+      merchant: req.user._id,
+      type: "payment",
+    })
+      .populate("student", "name studentId")
       .sort({ createdAt: -1 })
-      .limit(50);
-
+      .limit(100);
     res.json({ transactions });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// Get today's sales
 const getTodaySales = async (req, res) => {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
 
-    const transactions = await Transaction.find({
-      merchant: req.user._id,
-      createdAt: { $gte: today },
-      status: 'completed'
-    });
-
-    const totalSales = transactions.reduce((sum, txn) => sum + txn.amount, 0);
-    const totalTransactions = transactions.length;
+    const agg = await Transaction.aggregate([
+      {
+        $match: {
+          merchant: req.user._id,
+          type: "payment",
+          status: "completed",
+          createdAt: { $gte: todayStart },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalSales: { $sum: "$amount" },
+          totalTransactions: { $sum: 1 },
+        },
+      },
+    ]);
 
     res.json({
-      totalSales,
-      totalTransactions,
-      transactions
+      totalSales: agg[0]?.totalSales ?? 0,
+      totalTransactions: agg[0]?.totalTransactions ?? 0,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -63,5 +69,5 @@ module.exports = {
   getProfile,
   getBalance,
   getTransactionHistory,
-  getTodaySales
+  getTodaySales,
 };
