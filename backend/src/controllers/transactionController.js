@@ -2,6 +2,17 @@ const crypto = require("crypto");
 const Student = require("../models/Student");
 const Merchant = require("../models/Merchant");
 const Transaction = require("../models/Transaction");
+const qrService = require("../services/qrService");
+
+const getQrSecret = () => {
+  const secret = process.env.QR_SECRET;
+  if (!secret || typeof secret !== "string") {
+    throw new Error(
+      "Missing QR_SECRET environment variable. Set QR_SECRET in backend/.env or your production environment.",
+    );
+  }
+  return secret;
+};
 
 // ── POST /api/transactions/generate-qr ───────────────────────────────────────
 const generateQR = async (req, res) => {
@@ -16,6 +27,11 @@ const generateQR = async (req, res) => {
       return res.status(400).json({ message: "Merchant ID is required" });
     }
 
+    const studentId = req.user.studentId;
+    if (!studentId) {
+      return res.status(400).json({ message: "Student identity is missing" });
+    }
+
     const merchant = await Merchant.findOne({ merchantId: merchantId.trim() });
     if (!merchant) {
       return res
@@ -28,28 +44,43 @@ const generateQR = async (req, res) => {
         .json({ message: "Merchant account is deactivated" });
     }
 
-    const student = await Student.findById(req.user._id);
+    const student = await Student.findOne({ studentId });
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
     if (student.balance < parsedAmount) {
       return res.status(400).json({
         message: `Insufficient balance. You have ₹${student.balance.toFixed(2)}`,
       });
     }
 
-    const qrPayload = {
-      type: "payment",
-      transactionId: `TXN_${Date.now()}_${crypto.randomBytes(4).toString("hex").toUpperCase()}`,
-      studentId: student.studentId,
-      studentName: student.name,
-      studentEmail: student.email,
-      merchantId: merchant.merchantId,
-      merchantName: merchant.shopName,
-      amount: parsedAmount,
-      timestamp: new Date().toISOString(),
-    };
+    const { qrPayload, qrCodeImage } = await qrService.generateQRData(
+      studentId,
+      parsedAmount,
+      merchantId.trim(),
+    );
 
-    res.json({ qrPayload });
+    res.json({ qrPayload, qrCodeImage });
   } catch (error) {
     console.error("Generate QR error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const verifyQR = async (req, res) => {
+  try {
+    const { qrData } = req.body;
+
+    if (!qrData || typeof qrData !== "object") {
+      return res.status(400).json({ message: "Missing qrData payload" });
+    }
+
+    const merchantId = req.user.merchantId;
+    const result = await qrService.verifyAndProcessPayment(qrData, merchantId);
+
+    res.status(201).json(result);
+  } catch (error) {
+    console.error("Verify QR error:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -57,8 +88,14 @@ const generateQR = async (req, res) => {
 // ── POST /api/transactions/process-payment ────────────────────────────────────
 const processPayment = async (req, res) => {
   try {
-    const { transactionId, studentEmail, merchantId, amount, timestamp } =
-      req.body;
+    const {
+      transactionId,
+      studentEmail,
+      merchantId,
+      amount,
+      timestamp,
+      signature,
+    } = req.body;
     const parsedAmount = parseFloat(amount);
 
     // ── Validate inputs ───────────────────────────────────────────────────────
@@ -67,11 +104,40 @@ const processPayment = async (req, res) => {
       !studentEmail ||
       !merchantId ||
       !parsedAmount ||
-      !timestamp
+      !timestamp ||
+      !signature
     ) {
       return res
         .status(400)
         .json({ message: "Missing required payment fields" });
+    }
+
+    // ── HMAC-SHA256 signature verification ────────────────────────────────────
+    // Reconstruct the payload in the EXACT key order used during signing
+    const canonicalPayload = {
+      type: req.body.type,
+      transactionId: req.body.transactionId,
+      studentId: req.body.studentId,
+      studentName: req.body.studentName,
+      studentEmail: req.body.studentEmail,
+      merchantId: req.body.merchantId,
+      merchantName: req.body.merchantName,
+      amount: parsedAmount,
+      timestamp: req.body.timestamp,
+    };
+    const computedSignature = crypto
+      .createHmac("sha256", getQrSecret())
+      .update(JSON.stringify(canonicalPayload))
+      .digest("hex");
+
+    // Constant-time comparison to prevent timing attacks
+    const sigBuffer = Buffer.from(signature, "hex");
+    const computedBuffer = Buffer.from(computedSignature, "hex");
+    if (
+      sigBuffer.length !== computedBuffer.length ||
+      !crypto.timingSafeEqual(sigBuffer, computedBuffer)
+    ) {
+      return res.status(400).json({ message: "Invalid or tampered QR code" });
     }
 
     // ── Replay attack prevention ──────────────────────────────────────────────
@@ -181,4 +247,4 @@ const getTransactions = async (req, res) => {
   }
 };
 
-module.exports = { generateQR, processPayment, getTransactions };
+module.exports = { generateQR, verifyQR, processPayment, getTransactions };

@@ -17,7 +17,7 @@ export default function QRDisplay({
   qrData,
   amount,
   merchantName,
-  expirySeconds = 60,
+  expirySeconds = 90,
   onExpire,
   onCancel,
 }: QRDisplayProps) {
@@ -88,80 +88,81 @@ export default function QRDisplay({
   );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-  container: {
-    backgroundColor: colors.card,
-    padding: 24,
-    borderRadius: 20,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  qrContainer: {
-    padding: 20,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    marginBottom: 20,
-  },
-  infoContainer: {
-    width: "100%",
-    marginBottom: 16,
-  },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  label: {
-    fontSize: 16,
-    color: colors.textLight,
-    fontWeight: "500",
-  },
-  value: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: colors.text,
-  },
-  merchantValue: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: colors.text,
-    flex: 1,
-    textAlign: "right",
-    marginLeft: 8,
-  },
-  countdownContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 8,
-    marginBottom: 12,
-  },
-  countdown: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#fff",
-  },
-  instruction: {
-    fontSize: 14,
-    color: colors.textLight,
-    textAlign: "center",
-    marginBottom: 16,
-  },
-  cancelButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-  },
-  cancelButtonText: {
-    color: colors.danger,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-});
+const getStyles = (colors: any) =>
+  StyleSheet.create({
+    container: {
+      backgroundColor: colors.card,
+      padding: 24,
+      borderRadius: 20,
+      alignItems: "center",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 5,
+    },
+    qrContainer: {
+      padding: 20,
+      backgroundColor: "#fff",
+      borderRadius: 16,
+      marginBottom: 20,
+    },
+    infoContainer: {
+      width: "100%",
+      marginBottom: 16,
+    },
+    row: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 8,
+    },
+    label: {
+      fontSize: 16,
+      color: colors.textLight,
+      fontWeight: "500",
+    },
+    value: {
+      fontSize: 20,
+      fontWeight: "bold",
+      color: colors.text,
+    },
+    merchantValue: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: colors.text,
+      flex: 1,
+      textAlign: "right",
+      marginLeft: 8,
+    },
+    countdownContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 20,
+      gap: 8,
+      marginBottom: 12,
+    },
+    countdown: {
+      fontSize: 16,
+      fontWeight: "bold",
+      color: "#fff",
+    },
+    instruction: {
+      fontSize: 14,
+      color: colors.textLight,
+      textAlign: "center",
+      marginBottom: 16,
+    },
+    cancelButton: {
+      paddingVertical: 12,
+      paddingHorizontal: 24,
+      borderRadius: 8,
+    },
+    cancelButtonText: {
+      color: colors.danger,
+      fontSize: 16,
+      fontWeight: "600",
+    },
+  });

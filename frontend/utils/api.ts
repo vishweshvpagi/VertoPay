@@ -3,11 +3,11 @@ import { Platform } from 'react-native';
 import { router } from 'expo-router';
 
 // ✅ Change to your machine's LAN IP when testing on physical device
-const LAPTOP_IP = '192.168.29.188';
-const PORT      = '5001';
+const LAPTOP_IP = '192.168.0.101';
+const PORT      = '5000';
 
 const getBaseUrl = (): string => {
-  if (Platform.OS === 'web') return 'http://localhost:5001';
+  if (Platform.OS === 'web') return 'http://localhost:5000';
   return `http://${LAPTOP_IP}:${PORT}`;
 };
 
